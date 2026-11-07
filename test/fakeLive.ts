@@ -26,7 +26,24 @@ export class FakeLive {
   // can move the start marker (Song.start_time), which Ablcon's script does on jump.
   startMarker = 0;
   stopPosition = 0;
-  oldScript = false; // imitate the Remote Script from before play_from existed
+  oldScript = false; // imitate an older Remote Script (no play_from, solo or restore_tempo)
+  // Song Tempo automation as [beat, bpm] steps. Like Live, setting the tempo
+  // overrides it everywhere until restore_tempo re-enables it.
+  tempoMap: Array<[number, number]> = [];
+  overridden = false;
+
+  private automatedTempo(beats: number): number | null {
+    let bpm: number | null = null;
+    for (const [beat, value] of this.tempoMap) if (beat <= beats) bpm = value;
+    return bpm;
+  }
+
+  /** While automation is active, the tempo follows it as the playhead moves. */
+  private followAutomation(): void {
+    if (this.overridden) return;
+    const bpm = this.automatedTempo(this.set.beats);
+    if (bpm !== null) this.set.tempo = bpm;
+  }
   silent = false; // when true, requests are ignored (simulates Live not running)
   ignore = new Set<string>(); // methods to leave unanswered
   private socket = dgram.createSocket('udp4');
@@ -58,6 +75,7 @@ export class FakeLive {
   /** Send a position update the way the Remote Script does every tick. */
   pushPosition(): void {
     if (!this.client || this.closed) return;
+    this.followAutomation();
     const s = this.set;
     const msg = encodeMessage('/ablcon/pos', [float(s.beats), int(s.playing ? 1 : 0), float(s.tempo), int(s.loop.enabled ? 1 : 0), float(s.loop.start), float(s.loop.length)]);
     this.socket.send(msg, this.client.port, this.client.address);
@@ -100,7 +118,7 @@ export class FakeLive {
     const s = this.set;
     switch (method) {
       case 'ping': return { script: 'ablcon', version: 'test', live: '12.0.0' };
-      case 'state': return { beats: s.beats, playing: s.playing, tempo: s.tempo, loop: s.loop };
+      case 'state': return { beats: s.beats, playing: s.playing, tempo: s.tempo, loop: s.loop, automationOverridden: this.overridden };
       case 'cues': return { cues: s.cues, songLength: s.songLength };
       case 'play': s.beats = this.startMarker; s.playing = true; this.autoPush(); return true;
       case 'continue': s.beats = this.stopPosition; s.playing = true; this.autoPush(); return true;
@@ -112,6 +130,7 @@ export class FakeLive {
       case 'jump':
         if (!s.playing && !this.oldScript) this.startMarker = Number(args.beats);
         s.beats = Number(args.beats);
+        this.followAutomation();
         this.autoPush();
         return { startMarker: !s.playing && !this.oldScript };
       case 'play_from':
@@ -121,7 +140,17 @@ export class FakeLive {
         s.playing = true;
         this.autoPush();
         return { method: 'start_marker' };
-      case 'tempo': s.tempo = Number(args.bpm); return true;
+      case 'tempo':
+        s.tempo = Number(args.bpm);
+        if (this.tempoMap.length) this.overridden = true;
+        return true;
+      case 'restore_tempo': {
+        if (this.oldScript) throw new Error("unknown method 'restore_tempo'");
+        const was = this.overridden;
+        this.overridden = false;
+        this.followAutomation();
+        return { reenabled: was };
+      }
       case 'loop':
         if (args.start !== undefined) s.loop = { ...s.loop, start: Number(args.start), length: Number(args.length) };
         s.loop.enabled = Boolean(args.enabled);

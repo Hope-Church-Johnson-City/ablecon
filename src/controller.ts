@@ -47,6 +47,8 @@ export class Controller extends EventEmitter<ControllerEvents> {
   private flushing = false;
   private tempoSaving = new Set<string>();
   private oldScriptWarned = false;
+  private tempoOverridden = false; // Ablcon set a tempo, so Live's tempo automation is overridden
+  private restoreWarned = false;
   tracks: MixerTrack[] = [];
   private mixerRead = 0; // newest track-list read; older replies are dropped
   private queue: Promise<unknown> = Promise.resolve();
@@ -132,6 +134,9 @@ export class Controller extends EventEmitter<ControllerEvents> {
         this.live.call<Position>('state'),
       ]);
       this.position = { ...this.position, ...state };
+      // Tempo automation overridden before Ablcon started (or by an earlier
+      // run): hand it back as soon as a song without its own tempo is chosen.
+      if ((state as { automationOverridden?: boolean }).automationOverridden) this.tempoOverridden = true;
       const sectionClips = await this.readSectionClips(cueReply.cues, cueReply.songLength);
       const parsed = parseLocators(cueReply.cues, cueReply.songLength, sectionClips);
       this.songs = parsed.songs;
@@ -217,9 +222,13 @@ export class Controller extends EventEmitter<ControllerEvents> {
     if (nowIn) this.noteTempo(nowIn, pos);
     if (wasIn && !wasIn.stopAtEnd && crossedEnd(prev, pos, wasIn)) {
       this.onFlow(wasIn);
-    } else if (pos.playing && nowIn && nowIn.id !== wasIn?.id) {
-      // Playback moved into a song some other way (a jump, Play): get the song after it ready.
-      void this.run(() => this.prepareFlowNext(nowIn)).catch((err) => this.notice('error', err.message));
+    } else if (nowIn && nowIn.id !== wasIn?.id) {
+      // The playhead moved into a song some other way (a jump, Play, or in
+      // Live itself): give it its tempo and, if playing, get the next song ready.
+      void this.run(async () => {
+        await this.applyTempo(nowIn.id);
+        if (pos.playing) await this.prepareFlowNext(nowIn);
+      }).catch((err) => this.notice('error', err.message));
     }
     if (action !== 'none' && wasIn) {
       // A song the user queued wins over the next one in the setlist.
@@ -292,11 +301,37 @@ export class Controller extends EventEmitter<ControllerEvents> {
 
   // ---- tempo and key -----------------------------------------------------------
 
+  /**
+   * Give a song its tempo. A song with its own tempo overrides Live's tempo
+   * (and with it any tempo automation, which Live does for the whole set). A
+   * song without one hands tempo back to the set's automation, so a tempo
+   * set for one song only lasts while that song plays.
+   */
   private async applyTempo(songId: string): Promise<void> {
-    const bpm = planTempo(this.entry(songId)?.tempo ?? null, this.position.tempo);
+    const want = this.entry(songId)?.tempo ?? null;
+    if (want === null) {
+      if (this.tempoOverridden) await this.restoreTempo();
+      return;
+    }
+    const bpm = planTempo(want, this.position.tempo);
     if (bpm === null) return;
     await this.live.call('tempo', { bpm });
+    this.tempoOverridden = true;
     this.position = { ...this.position, tempo: bpm };
+  }
+
+  private async restoreTempo(): Promise<void> {
+    try {
+      await this.live.call('restore_tempo');
+      this.tempoOverridden = false;
+    } catch (err) {
+      if (!/unknown method/.test((err as Error).message)) throw err;
+      this.tempoOverridden = false; // don't ask again for every song
+      if (!this.restoreWarned) {
+        this.restoreWarned = true;
+        this.notice('warn', 'To keep song tempos from spreading to other songs, update the Remote Script (File → Install Remote Script in Ableton Live…, then restart Live).');
+      }
+    }
   }
 
   /**

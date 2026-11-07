@@ -5,7 +5,7 @@ something JSON-serialisable. Nothing here imports Live modules, so the same
 code runs under the unit tests with a fake Song.
 """
 
-SCRIPT_VERSION = "1.2.0"
+SCRIPT_VERSION = "1.3.0"
 
 # Class name Live reports for its built-in "Pitch" MIDI effect.
 PITCH_DEVICE_CLASS = "MidiPitcher"
@@ -46,6 +46,8 @@ def state(song, args):
             "length": song.loop_length,
         },
         "signature": [song.signature_numerator, song.signature_denominator],
+        # True when some automation (e.g. the tempo lane) is overridden.
+        "automationOverridden": bool(_safe(lambda: song.re_enable_automation_enabled, False)),
     }
 
 
@@ -152,6 +154,20 @@ def tempo(song, args):
         raise RequestError("tempo must be between 20 and 999 BPM")
     song.tempo = bpm
     return True
+
+
+def restore_tempo(song, args):
+    """Hand tempo back to the set's tempo automation after Ablcon overrode it.
+
+    Setting Song.tempo in a set with tempo automation overrides that
+    automation everywhere (Live lights its "Re-enable Automation" button).
+    Live can't re-enable a single lane from a script, so this re-enables
+    overridden automation, which brings the tempo lane back.
+    """
+    if not _safe(lambda: song.re_enable_automation_enabled, False):
+        return {"reenabled": False}
+    song.re_enable_automation()
+    return {"reenabled": True}
 
 
 def loop(song, args):
@@ -346,6 +362,7 @@ HANDLERS = {
     "jump": jump,
     "play_from": play_from,
     "tempo": tempo,
+    "restore_tempo": restore_tempo,
     "loop": loop,
     "tracks": tracks,
     "apply": apply,

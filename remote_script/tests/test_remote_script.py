@@ -110,6 +110,21 @@ class DispatcherTests(unittest.TestCase):
         self.song.has_start_time = False
         self.assertEqual(request(self.d, "jump", {"beats": 8})["result"], {"startMarker": False})
 
+    def test_tempo_override_and_restore(self):
+        song = plain_song()
+        d = Dispatcher(song)
+        song.current_song_time = 150  # River Wide: automation says 128
+        self.assertEqual(request(d, "state")["result"]["tempo"], 128)
+        self.assertFalse(request(d, "state")["result"]["automationOverridden"])
+        request(d, "tempo", {"bpm": 90})
+        self.assertEqual(song.tempo, 90)
+        self.assertTrue(request(d, "state")["result"]["automationOverridden"])
+        song.current_song_time = 300  # the override holds everywhere, as in Live
+        self.assertEqual(song.tempo, 90)
+        self.assertEqual(request(d, "restore_tempo")["result"], {"reenabled": True})
+        self.assertEqual(song.tempo, 68, "automation is back")
+        self.assertEqual(request(d, "restore_tempo")["result"], {"reenabled": False}, "nothing to do")
+
     def test_loop(self):
         request(self.d, "loop", {"start": 48, "length": 32, "enabled": True})
         self.assertEqual((self.song.loop, self.song.loop_start, self.song.loop_length),

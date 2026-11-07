@@ -95,12 +95,15 @@ class Track(object):
 
 
 class Song(object):
-    def __init__(self, cue_points=None, tracks=None, tempo=120.0, song_length=0.0):
+    def __init__(self, cue_points=None, tracks=None, tempo=120.0, song_length=0.0, tempo_map=None):
         self.cue_points = cue_points or []
         self.tracks = tracks or []
         for track in self.tracks:
             track.song = self
-        self.tempo = float(tempo)
+        # tempo_map: [(beat, bpm), ...] imitates a Song Tempo automation lane.
+        self.tempo_map = sorted(tempo_map or [])
+        self.re_enable_automation_enabled = False
+        self._tempo = float(tempo)
         self.is_playing = False
         self.current_song_time = 0.0
         self.loop = False
@@ -128,6 +131,29 @@ class Song(object):
         if not self.has_start_time:
             raise AttributeError("start_time")
         self._start_time = float(value)
+
+    def _automated_tempo(self):
+        bpm = None
+        for beat, value in self.tempo_map:
+            if beat <= self.current_song_time:
+                bpm = value
+        return bpm
+
+    @property
+    def tempo(self):
+        if self.tempo_map and not self.re_enable_automation_enabled:
+            return self._automated_tempo() or self._tempo
+        return self._tempo
+
+    @tempo.setter
+    def tempo(self, value):
+        self._tempo = float(value)
+        if self.tempo_map:
+            self.re_enable_automation_enabled = True  # like Live: overrides the lane everywhere
+
+    def re_enable_automation(self):
+        self.calls.append("re_enable_automation")
+        self.re_enable_automation_enabled = False
 
     def start_playing(self):
         self.calls.append("start_playing")
@@ -230,4 +256,5 @@ def plain_song():
         for stem in ("Drums", "Perc", "Loop", "Bass", "Synth Bass", "AG", "EG 1", "EG 2", "EG 3",
                      "Piano", "Keys 1", "Keys 2", "Synth Pad", "Organ", "Strings", "BGVS", "Choir"):
             tracks.append(Track(stem, group=group, clips=[Clip("%s %s" % (title, stem), start, end)]))
-    return Song(cues, tracks, tempo=72.0, song_length=395.0)
+    return Song(cues, tracks, tempo=72.0, song_length=395.0,
+                tempo_map=[(0, 72.0), (140, 128.0), (263, 68.0)])

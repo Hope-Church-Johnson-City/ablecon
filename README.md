@@ -195,9 +195,21 @@ marker before it stops or jumps. Leave a little silence before each STOP.
 
 ### Tempo per song
 
-Type a BPM in the song's tempo box (leave it empty to keep whatever Live is set to). Ablcon sets Live's
-song tempo when the song is cued while stopped, or when it starts. It doesn't change the tempo while
-another song is playing. If your set has tempo automation, the automation wins once playback reaches it.
+Type a BPM in the song's tempo box. Leave it empty to use the set's own tempo (its Song Tempo
+automation, if it has some). A song's tempo only applies to that song:
+
+- When the song is cued while stopped, starts, or playback runs into it, Ablcon sets Live's tempo.
+  It doesn't change the tempo while another song is still playing.
+- If the set has tempo automation, Live treats this like moving the tempo by hand. It overrides the
+  automation (everywhere, not just in that song) and lights its **Re-enable Automation** button.
+- As soon as the playhead is in a song with no tempo of its own, whether you tap it, play straight into
+  it, or move there in Live, Ablcon re-enables the automation. The rest of the set keeps its automated
+  tempos.
+
+Live doesn't let scripts edit the automation lane itself, so this is done by overriding and
+re-enabling. Re-enabling brings back any other automation you overrode by hand too (a volume you rode,
+for example), the same as clicking Live's Re-enable Automation button. This needs Remote Script 1.3.0
+or newer; with an older one the page asks you to update it.
 
 ### Key per song
 
@@ -329,7 +341,8 @@ OSC messages over UDP on 127.0.0.1. The script listens on port 11100 and replies
 
 Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `tempo {bpm}`,
 `loop {start, length, enabled}`, `tracks {start, end}`, `apply {ops}`, `mixer`,
-`mute {track, trackName, muted}`, `solo {track, trackName, soloed}`, `clear_solos`, `play_from {beats}`. Replies are split into chunks of
+`mute {track, trackName, muted}`, `solo {track, trackName, soloed}`, `clear_solos`, `play_from {beats}`,
+`restore_tempo`. Replies are split into chunks of
 6000 ASCII characters to stay under macOS's 9216-byte UDP datagram limit.
 
 ### Tests

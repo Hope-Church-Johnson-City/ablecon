@@ -340,6 +340,80 @@ test('running times use the tempo Live plays each song at', async () => {
   }
 });
 
+test('a song tempo only lasts while that song plays; other songs get the automation back', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.tempoMap = [[0, 120], [40, 60]]; // Song Tempo automation: First at 120, Second at 60
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await controller.setTempo('second', 90);
+    await controller.cue('second');
+    assert.equal(fake.set.tempo, 90);
+    assert.equal(fake.overridden, true, 'Live overrides the automation, as it does');
+    await controller.cue('first');
+    assert.equal(fake.overridden, false, 'automation re-enabled');
+    assert.equal(fake.set.tempo, 120, "First is back at its automated tempo");
+    assert.ok(fake.methods().includes('restore_tempo'));
+  } finally {
+    done();
+  }
+});
+
+test('moving into a song in Live itself also hands tempo back to the automation', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.tempoMap = [[0, 120], [40, 60]];
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await controller.setTempo('first', 100);
+    await controller.start('first');
+    assert.equal(fake.set.tempo, 100);
+    // The user drags the playhead into Second in Live while playing.
+    fake.set.beats = 44;
+    fake.pushPosition();
+    await until(() => fake.overridden === false);
+    assert.equal(fake.set.tempo, 60);
+  } finally {
+    done();
+  }
+});
+
+test('a tempo override from before Ablcon started is cleaned up on the next song', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.tempoMap = [[0, 120], [40, 60]];
+    fake.overridden = true; // left over from an earlier session
+    fake.set.tempo = 77;
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await controller.cue('second');
+    assert.equal(fake.overridden, false);
+    assert.equal(fake.set.tempo, 60);
+  } finally {
+    done();
+  }
+});
+
+test('with an old Remote Script, restoring the tempo asks for an update once', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.oldScript = true;
+    fake.tempoMap = [[0, 120], [40, 60]];
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    const notices: string[] = [];
+    controller.on('notice', (n) => notices.push(n.text));
+    await controller.setTempo('second', 90);
+    await controller.cue('second');
+    await controller.cue('first');
+    await controller.cue('second');
+    await controller.cue('first');
+    assert.equal(notices.filter((n) => /spreading to other songs/.test(n)).length, 1);
+  } finally {
+    done();
+  }
+});
+
 test('section loop toggles on and off', async () => {
   const { fake, controller, client, done } = await setup();
   try {
