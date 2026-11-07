@@ -1,10 +1,10 @@
-"""Ablcon wire protocol (OSC over UDP on localhost).
+"""Ablecon wire protocol (OSC over UDP on localhost).
 
-Requests  (server -> Live):  /ablcon/req  <id:i> <method:s> <args-json:s>
-Replies   (Live -> server):  /ablcon/res  <id:i> <part:i> <parts:i> <json-chunk:s>
-Pushes    (Live -> server):  /ablcon/pos  <beats:f> <playing:i> <tempo:f>
+Requests  (server -> Live):  /ablecon/req  <id:i> <method:s> <args-json:s>
+Replies   (Live -> server):  /ablecon/res  <id:i> <part:i> <parts:i> <json-chunk:s>
+Pushes    (Live -> server):  /ablecon/pos  <beats:f> <playing:i> <tempo:f>
                                           <loop:i> <loopStart:f> <loopLength:f>
-                             /ablcon/changed <what:s>   ("cues" or "tracks")
+                             /ablecon/changed <what:s>   ("cues" or "tracks")
 
 A reply body is JSON: {"ok": true, "result": ...} or {"ok": false, "error": "..."}.
 It is ASCII-only (non-ASCII is \\u-escaped) and split into chunks so every
@@ -22,13 +22,13 @@ def split_reply(request_id, body):
     text = json.dumps(body, ensure_ascii=True, separators=(",", ":"))
     chunks = [text[i:i + CHUNK_CHARS] for i in range(0, len(text), CHUNK_CHARS)] or [""]
     return [
-        encode_message("/ablcon/res", [int(request_id), part, len(chunks), chunk])
+        encode_message("/ablecon/res", [int(request_id), part, len(chunks), chunk])
         for part, chunk in enumerate(chunks)
     ]
 
 
 def position_message(song):
-    return encode_message("/ablcon/pos", [
+    return encode_message("/ablecon/pos", [
         float(song.current_song_time),
         1 if song.is_playing else 0,
         float(song.tempo),
@@ -39,7 +39,7 @@ def position_message(song):
 
 
 def changed_message(what):
-    return encode_message("/ablcon/changed", [what])
+    return encode_message("/ablecon/changed", [what])
 
 
 class Dispatcher(object):
@@ -55,7 +55,7 @@ class Dispatcher(object):
         except ValueError as exc:
             self._log("ignored bad datagram: %s" % exc)
             return []
-        if address != "/ablcon/req" or len(args) < 2:
+        if address != "/ablecon/req" or len(args) < 2:
             self._log("ignored message %s" % address)
             return []
         request_id, method = args[0], args[1]

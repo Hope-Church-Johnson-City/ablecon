@@ -1,7 +1,7 @@
-"""A stand-in for Live's Song object with just the API Ablcon uses.
+"""A stand-in for Live's Song object with just the API Ablecon uses.
 
 Used by the Python unit tests and by fake_live_server.py, which lets you run
-the Ablcon server and web UI without Ableton Live.
+the Ablecon server and web UI without Ableton Live.
 """
 
 

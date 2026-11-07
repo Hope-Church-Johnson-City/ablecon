@@ -1,6 +1,6 @@
 /* Looks. "Stage" is the default set in app.css; each look below overrides
    the variables at the top of app.css. Picked per device in Settings, stored
-   in localStorage ("ablcon.look"), or forced with ?look=name in the URL. */
+   in localStorage ("ablecon.look"), or forced with ?look=name in the URL. */
 
 /* Blackout: pure black, larger type and buttons, very bright colours.
    For a dark stage or booth, or a screen seen from a distance. */

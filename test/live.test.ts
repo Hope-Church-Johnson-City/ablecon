@@ -28,7 +28,7 @@ async function setup(opts: { timeoutMs?: number } = {}) {
   const fake = new FakeLive(demoSet());
   const port = await fake.start();
   const client = new LiveClient({ port, timeoutMs: opts.timeoutMs ?? 500, heartbeatMs: 60_000 });
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'ablcon-'));
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'ablecon-'));
   const setlistPath = path.join(dir, 'setlist.json');
   const controller = new Controller(client, setlistPath);
   await controller.init();
@@ -378,7 +378,7 @@ test('moving into a song in Live itself also hands tempo back to the automation'
   }
 });
 
-test('a tempo override from before Ablcon started is cleaned up on the next song', async () => {
+test('a tempo override from before Ablecon started is cleaned up on the next song', async () => {
   const { fake, controller, client, done } = await setup();
   try {
     fake.tempoMap = [[0, 120], [40, 60]];
@@ -623,7 +623,7 @@ test('end to end with the Python Remote Script handlers', async (t) => {
     return;
   }
   const client = new LiveClient({ port, heartbeatMs: 60_000 });
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'ablcon-'));
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'ablecon-'));
   const controller = new Controller(client, path.join(dir, 's.json'));
   try {
     await controller.init();

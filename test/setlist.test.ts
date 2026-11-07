@@ -106,7 +106,7 @@ test('a remembered tempo is used when the song has no tempo of its own', () => {
 });
 
 test('save and load round-trip; bad values in the file are dropped', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'ablcon-'));
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'ablecon-'));
   const file = path.join(dir, 'setlist.json');
   assert.deepEqual(await sl.loadSetlist(file), sl.emptySetlist(), 'missing file = empty setlist');
   let data = sl.reconcile(sl.emptySetlist(), songs).file;

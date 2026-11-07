@@ -1,5 +1,5 @@
 // An in-process stand-in for the Remote Script: a UDP server that speaks the
-// Ablcon protocol and keeps a tiny model of a Live set.
+// Ablecon protocol and keeps a tiny model of a Live set.
 
 import dgram from 'node:dgram';
 import { argValues, decodeMessage, encodeMessage, float, int, str } from '../src/osc.ts';
@@ -23,7 +23,7 @@ export class FakeLive {
   soloed = new Set<number>();
   // Like Live: "play" starts at the start marker and "continue" where playback last
   // stopped. Moving the playhead while stopped changes neither, unless the script
-  // can move the start marker (Song.start_time), which Ablcon's script does on jump.
+  // can move the start marker (Song.start_time), which Ablecon's script does on jump.
   startMarker = 0;
   stopPosition = 0;
   oldScript = false; // imitate an older Remote Script (no play_from, solo or restore_tempo)
@@ -84,7 +84,7 @@ export class FakeLive {
       this.scheduled = null;
     }
     const s = this.set;
-    const msg = encodeMessage('/ablcon/pos', [float(s.beats), int(s.playing ? 1 : 0), float(s.tempo), int(s.loop.enabled ? 1 : 0), float(s.loop.start), float(s.loop.length)]);
+    const msg = encodeMessage('/ablecon/pos', [float(s.beats), int(s.playing ? 1 : 0), float(s.tempo), int(s.loop.enabled ? 1 : 0), float(s.loop.start), float(s.loop.length)]);
     this.socket.send(msg, this.client.port, this.client.address);
   }
 
@@ -95,13 +95,13 @@ export class FakeLive {
 
   pushChanged(what: string): void {
     if (!this.client || this.closed) return;
-    this.socket.send(encodeMessage('/ablcon/changed', [str(what)]), this.client.port, this.client.address);
+    this.socket.send(encodeMessage('/ablecon/changed', [str(what)]), this.client.port, this.client.address);
   }
 
   private onMessage(buf: Buffer, rinfo: dgram.RemoteInfo): void {
     if (this.silent) return;
     const msg = decodeMessage(buf);
-    if (msg.address !== '/ablcon/req') return;
+    if (msg.address !== '/ablecon/req') return;
     this.client = { address: rinfo.address, port: rinfo.port };
     const [id, method, rawArgs] = argValues(msg) as [number, string, string];
     const args = JSON.parse(rawArgs || '{}') as Record<string, unknown>;
@@ -117,14 +117,14 @@ export class FakeLive {
     const chunks: string[] = [];
     for (let i = 0; i < text.length; i += this.chunkSize) chunks.push(text.slice(i, i + this.chunkSize));
     chunks.forEach((chunk, part) => {
-      this.socket.send(encodeMessage('/ablcon/res', [int(id), int(part), int(chunks.length), str(chunk)]), rinfo.port, rinfo.address);
+      this.socket.send(encodeMessage('/ablecon/res', [int(id), int(part), int(chunks.length), str(chunk)]), rinfo.port, rinfo.address);
     });
   }
 
   private handle(method: string, args: Record<string, unknown>): unknown {
     const s = this.set;
     switch (method) {
-      case 'ping': return { script: 'ablcon', version: 'test', live: '12.0.0' };
+      case 'ping': return { script: 'ablecon', version: 'test', live: '12.0.0' };
       case 'state': return { beats: s.beats, playing: s.playing, tempo: s.tempo, loop: s.loop, automationOverridden: this.overridden };
       case 'cues': return { cues: s.cues, songLength: s.songLength };
       case 'play': s.beats = this.startMarker; s.playing = true; this.autoPush(); return true;

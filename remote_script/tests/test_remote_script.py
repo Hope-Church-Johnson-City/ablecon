@@ -11,20 +11,20 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "fake_live"))
 
-from Ablcon import handlers  # noqa: E402
-from Ablcon.osc import decode_message, encode_message  # noqa: E402
-from Ablcon.protocol import CHUNK_CHARS, Dispatcher  # noqa: E402
+from Ablecon import handlers  # noqa: E402
+from Ablecon.osc import decode_message, encode_message  # noqa: E402
+from Ablecon.protocol import CHUNK_CHARS, Dispatcher  # noqa: E402
 from fake_song import Clip, CuePoint, Song, Track, demo_song, plain_song  # noqa: E402
 
 
 def request(dispatcher, method, args=None, request_id=1):
-    data = encode_message("/ablcon/req", [request_id, method, json.dumps(args or {})])
+    data = encode_message("/ablecon/req", [request_id, method, json.dumps(args or {})])
     datagrams = dispatcher.handle_datagram(data)
     chunks = {}
     total = None
     for d in datagrams:
         address, (rid, part, parts, chunk) = decode_message(d)
-        assert address == "/ablcon/res" and rid == request_id
+        assert address == "/ablecon/res" and rid == request_id
         chunks[part] = chunk
         total = parts
     assert len(chunks) == total
@@ -270,7 +270,7 @@ class DispatcherTests(unittest.TestCase):
     def test_large_reply_is_chunked(self):
         cues = [CuePoint("Section %d with a fairly long name" % i, i) for i in range(600)]
         d = Dispatcher(Song(cues, [Track("A", clips=[Clip("x", 0, 4)])]))
-        data = encode_message("/ablcon/req", [7, "cues", "{}"])
+        data = encode_message("/ablecon/req", [7, "cues", "{}"])
         datagrams = d.handle_datagram(data)
         self.assertGreater(len(datagrams), 1)
         for dg in datagrams:

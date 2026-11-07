@@ -1,23 +1,30 @@
-# Ablcon
+# Ablecon
 
 Run an Ableton Live set like a setlist, from any phone, tablet or laptop on your network.
 
-Ablcon reads the locators in your arrangement, turns them into songs and sections, and gives you a
+Ablecon reads the locators in your arrangement, turns them into songs and sections, and gives you a
 control page with transport buttons, a reorderable setlist, section jump and loop buttons, the running
 time of the set, a tempo and key for each song, and mute buttons for your tracks. Changing the setlist order never edits your Live set.
 
-> **About the name:** "Ablcon" is a working name. Names that start with "Abl" are close to Ableton's
-> trademark, so pick a different name before you release this publicly.
+> **About the name:** "Ablecon" (said "ABLE-con") is one letter away from "Ableton", which is a
+> trademark. That's fine for your own use, but pick a clearly different name before sharing or
+> releasing this publicly.
+>
+> **Renamed from "Ablcon":** the Ablecon app carries over the old app's setlist (tempos, keys, order)
+> and each device's look and panel settings the first time it runs. Its Remote Script is now called
+> **Ablecon**: install it from the File menu, which moves the old "Ablcon" script to the Trash, then
+> restart Live and choose **Ablecon** as the Control Surface. Delete the old Ablcon app from
+> Applications.
 
 It has three parts:
 
 | Part | What it does |
 | --- | --- |
-| **Ablcon.app** (Mac) | Runs the Ablcon server, shows the control page in a window and serves it to other devices on the network. |
-| **Remote Script** (`remote_script/Ablcon`) | A small Python script that runs inside Live and talks to the app over localhost (OSC over UDP). No Max for Live needed. |
+| **Ablecon.app** (Mac) | Runs the Ablecon server, shows the control page in a window and serves it to other devices on the network. |
+| **Remote Script** (`remote_script/Ablecon`) | A small Python script that runs inside Live and talks to the app over localhost (OSC over UDP). No Max for Live needed. |
 | **Control page** (`public/`) | The web page you open on a phone, tablet or laptop. Updates live over a WebSocket. |
 
-Requires Ableton Live 11 or 12 (Ablcon uses the arrangement-clip access added in Live 11) and macOS.
+Requires Ableton Live 11 or 12 (Ablecon uses the arrangement-clip access added in Live 11) and macOS.
 
 ---
 
@@ -25,25 +32,25 @@ Requires Ableton Live 11 or 12 (Ablcon uses the arrangement-clip access added in
 
 ### 1. Install the app
 
-Open `Ablcon-<version>-arm64.dmg` (Apple Silicon) or `Ablcon-<version>-x64.dmg` (Intel) and drag
-**Ablcon** to **Applications**.
+Open `Ablecon-<version>-arm64.dmg` (Apple Silicon) or `Ablecon-<version>-x64.dmg` (Intel) and drag
+**Ablecon** to **Applications**.
 
 The app is not signed with an Apple Developer ID, so the first time macOS will refuse to open it.
-Open it once anyway: try to open Ablcon, then go to **System Settings → Privacy & Security**, scroll
+Open it once anyway: try to open Ablecon, then go to **System Settings → Privacy & Security**, scroll
 down and click **Open Anyway**. (On older macOS you can instead right-click the app and choose
-**Open**.) When macOS asks whether Ablcon may accept incoming network connections, click **Allow**, or
+**Open**.) When macOS asks whether Ablecon may accept incoming network connections, click **Allow**, or
 phones and tablets won't be able to reach it.
 
 ### 2. Install the Remote Script
 
-On first launch Ablcon offers to install it for you. You can also run **File → Install Remote Script
-in Ableton Live…** at any time (for example after updating Ablcon).
+On first launch Ablecon offers to install it for you. You can also run **File → Install Remote Script
+in Ableton Live…** at any time (for example after updating Ablecon).
 
-To install it by hand instead, copy the `remote_script/Ablcon` folder (in the app it's in
-`Ablcon.app/Contents/Resources/remote_script/Ablcon`) to:
+To install it by hand instead, copy the `remote_script/Ablecon` folder (in the app it's in
+`Ablecon.app/Contents/Resources/remote_script/Ablecon`) to:
 
 ```
-~/Music/Ableton/User Library/Remote Scripts/Ablcon
+~/Music/Ableton/User Library/Remote Scripts/Ablecon
 ```
 
 If your User Library is somewhere else, Live shows its location under **Settings → Library**. Create
@@ -53,9 +60,9 @@ the `Remote Scripts` folder if it isn't there.
 
 1. Restart Live.
 2. Open **Settings** (called **Preferences** in Live 11) → **Link, Tempo & MIDI**.
-3. In an empty **Control Surface** slot choose **Ablcon**. Leave its **Input** and **Output** set to **None**.
+3. In an empty **Control Surface** slot choose **Ablecon**. Leave its **Input** and **Output** set to **None**.
 
-The dot at the top of the Ablcon page turns green and shows your Live version once they're connected.
+The dot at the top of the Ablecon page turns green and shows your Live version once they're connected.
 If it doesn't, see [Troubleshooting](#troubleshooting).
 
 ### 4. Open it on other devices
@@ -68,7 +75,7 @@ Open one in Safari or Chrome on any device on the same network. Tip: on an iPad 
 
 ## Naming your locators
 
-Ablcon builds songs from the arrangement locators (Live's "cue points"), and sections from either a
+Ablecon builds songs from the arrangement locators (Live's "cue points"), and sections from either a
 **Sections** track or more locators. It understands two layouts and picks one automatically.
 
 ### Plain layout (typical multitrack sets)
@@ -88,7 +95,7 @@ Sections:     [Count Off][Intro][Verse 1][Chorus]…[Ending]  [Count Off][Intro]
 Click / Guide / one group of stems per song
 ```
 
-The Sections track can be a MIDI track with empty clips; Ablcon only reads the clip names and positions.
+The Sections track can be a MIDI track with empty clips; Ablecon only reads the clip names and positions.
 If your track has another name, set it in **Settings → Track whose clips mark the sections** (leave it empty
 to turn this off).
 
@@ -130,16 +137,16 @@ A song with no section locators still gets its sections from the Sections track,
   new song; the old entry stays in the setlist marked **Not in Live set** so you don't lose its settings.
   Remove it in Edit mode once you're sure. If two songs have the same title, the second is told apart by
   its order.
-- Ablcon notices changes to locators and to the Sections track's clips within about a second.
+- Ablecon notices changes to locators and to the Sections track's clips within about a second.
   **Settings → Re-read locators** forces it (needed if your sections track has a name other than
-  "Sections", or if you're still using the Remote Script from an older Ablcon).
+  "Sections", or if you're still using the Remote Script from an older Ablecon).
 
 ---
 
 ## Using it
 
 - **Tap a song** to get it ready. If Live is stopped, the playhead moves to it and its tempo and key are
-  set. If Live is playing, it becomes **Up next**: at the current song's end, Ablcon goes to it (stopping
+  set. If Live is playing, it becomes **Up next**: at the current song's end, Ablecon goes to it (stopping
   first if there's a STOP marker).
 - **▶ next to a song** jumps straight to it and plays.
 - **Play / Stop.** Play always starts from where the page says the playhead is ("Ready at …"), not
@@ -166,7 +173,7 @@ A song with no section locators still gets its sections from the Sections track,
     it does nothing useful.
   - Each group folds up to one row with its own **M** and **S**: tap its name to open or close it. The row
     says how many tracks are in it and how many of those are muted or soloed.
-  - The group for the song that's playing (or ready) opens by itself and is marked **This song**. Ablcon
+  - The group for the song that's playing (or ready) opens by itself and is marked **This song**. Ablecon
     matches group names to song titles and forgives small spelling slips ("Kign Of Kings").
     Groups you open or close by hand stay that way on that device.
   - **M** turns red when a track is muted, **S** yellow when it's soloed. Solos add up (soloing a second
@@ -176,7 +183,7 @@ A song with no section locators still gets its sections from the Sections track,
     within a fraction of a second. Solo needs Remote Script 1.2.0 or newer (**File → Install Remote Script
     in Ableton Live…**, then restart Live). **Hide** folds the whole panel away on that device.
 - **Set** in the top bar is the total running time of every song in the setlist. A song with its own
-  tempo in the setlist is timed at that tempo. Otherwise Ablcon uses the tempo Live reported when the
+  tempo in the setlist is timed at that tempo. Otherwise Ablecon uses the tempo Live reported when the
   playhead was last near the song's start, which picks up tempo automation. Songs the playhead hasn't
   visited yet use Live's current tempo; tap through each song once to make the total exact. Tempo
   changes in the middle of a song aren't taken into account.
@@ -191,10 +198,10 @@ live previews of all five. Adding `?look=blackout` (etc.) to the address forces 
 
 ### When a song ends
 
-Ablcon only ever stops at a `STOP` (or `--`) marker. Every other boundary is played straight through:
+Ablecon only ever stops at a `STOP` (or `--`) marker. Every other boundary is played straight through:
 
 - **No STOP after a song:** Live keeps playing into the song that follows it in the arrangement, whatever
-  the setlist order. As playback crosses into it, Ablcon sets that song's tempo (if you gave it one).
+  the setlist order. As playback crosses into it, Ablecon sets that song's tempo (if you gave it one).
   Its stems are transposed ahead of time, while the song before is still playing, so the key is already
   right when it starts. Pitch devices on MIDI tracks are the exception: they affect every song, so they
   only change when a song is cued or started. If you queued a different song with **Next song** or by
@@ -203,12 +210,12 @@ Ablcon only ever stops at a `STOP` (or `--`) marker. Every other boundary is pla
   - **Stop and get the next song ready** (default): Live stops at the STOP marker and the playhead moves
     to the next song in the setlist (or the one you queued), with its tempo and key applied.
   - **Go straight into the next song:** jumps to that song and keeps playing. Its tempo is set at the jump.
-  - **Keep playing the arrangement:** Ablcon does nothing at STOP markers; Live plays on as normal.
+  - **Keep playing the arrangement:** Ablecon does nothing at STOP markers; Live plays on as normal.
 
 Under the transport buttons, **Up next** shows what follows the current song and how: "plays straight
 on" or "after the STOP".
 
-Ablcon sees the playhead about ten times a second, so Live may play a fraction of a beat past a STOP
+Ablecon sees the playhead about ten times a second, so Live may play a fraction of a beat past a STOP
 marker before it stops or jumps. Leave a little silence before each STOP.
 
 ### Tempo per song
@@ -216,12 +223,12 @@ marker before it stops or jumps. Leave a little silence before each STOP.
 Type a BPM in the song's tempo box. Leave it empty to use the set's own tempo (its Song Tempo
 automation, if it has some). A song's tempo only applies to that song:
 
-- When the song is cued while stopped, starts, or playback runs into it, Ablcon sets Live's tempo.
+- When the song is cued while stopped, starts, or playback runs into it, Ablecon sets Live's tempo.
   It doesn't change the tempo while another song is still playing.
 - If the set has tempo automation, Live treats this like moving the tempo by hand. It overrides the
   automation (everywhere, not just in that song) and lights its **Re-enable Automation** button.
 - As soon as the playhead is in a song with no tempo of its own, whether you tap it, play straight into
-  it, or move there in Live, Ablcon re-enables the automation. The rest of the set keeps its automated
+  it, or move there in Live, Ablecon re-enables the automation. The rest of the set keeps its automated
   tempos.
 
 Live doesn't let scripts edit the automation lane itself, so this is done by overriding and
@@ -232,8 +239,8 @@ or newer; with an older one the page asks you to update it.
 ### Key per song
 
 Use − / + to pick a key change from −12 to +12 semitones. If the song's locator has its key in brackets,
-the page shows the result, e.g. **G → A**. **Off** means Ablcon leaves the song's pitch
-alone. When the song is cued or started, Ablcon:
+the page shows the result, e.g. **G → A**. **Off** means Ablecon leaves the song's pitch
+alone. When the song is cued or started, Ablecon:
 
 - sets **Transpose** (`pitch_coarse`) on every **warped audio clip** that **starts inside the song**, on
   every track, to the chosen number of semitones;
@@ -245,9 +252,9 @@ alone. When the song is cued or started, Ablcon:
   stay put (spoken word, cues), or edit the list.
 
 The value is absolute: a key change of +2 sets clips to +2, and setting a song back to 0 resets its
-clips to 0. Leave clip Transpose at 0 in your set and let Ablcon manage it for songs that have a key set.
+clips to 0. Leave clip Transpose at 0 in your set and let Ablecon manage it for songs that have a key set.
 
-To avoid audible glitches Ablcon never changes anything that is currently sounding:
+To avoid audible glitches Ablecon never changes anything that is currently sounding:
 
 - Live stopped: everything is applied right away.
 - Live playing a different song: the cued song's audio clips change straight away (they aren't playing),
@@ -255,7 +262,7 @@ To avoid audible glitches Ablcon never changes anything that is currently soundi
 - Live playing inside that song: everything waits.
 
 A clip belongs to the song it starts in. Stems often run a little past their song's end: such a clip is
-transposed with its own song, and the next song leaves it alone. Ablcon doesn't warn about this.
+transposed with its own song, and the next song leaves it alone. Ablecon doesn't warn about this.
 
 Anything that has to wait is applied as soon as Live stops. The song shows a **Key waiting** tag until
 then. **Apply** (in Edit mode) applies a song's key on demand, following the same rules.
@@ -264,14 +271,14 @@ The ⚠ tag on a song means there's something you should look at, listed under t
 
 - an audio clip that isn't warped (Live can't transpose it; turn on **Warp**),
 - a MIDI track with clips in the song but no Pitch device,
-- a change Live refused (for example a track renamed since Ablcon read it; just apply again).
+- a change Live refused (for example a track renamed since Ablecon read it; just apply again).
 
 ### Where the setlist is saved
 
-- In the Mac app: `~/Library/Application Support/Ablcon/ablcon-setlist.json`
+- In the Mac app: `~/Library/Application Support/Ablecon/ablecon-setlist.json`
   (**File → Show Setlist File in Finder**).
-- When running from source with `npm start`: `ablcon-setlist.json` in the project folder, next to the
-  server. Set `ABLCON_SETLIST=/path/to/file.json` to use another file, for example one per Live set.
+- When running from source with `npm start`: `ablecon-setlist.json` in the project folder, next to the
+  server. Set `ABLECON_SETLIST=/path/to/file.json` to use another file, for example one per Live set.
 
 It's plain JSON (order, tempo, key per song, and the settings), safe to back up or copy between machines.
 
@@ -279,13 +286,13 @@ It's plain JSON (order, tempo, key per song, and the settings), safe to back up 
 
 ## Troubleshooting
 
-- **Dot stays red ("Live not found")**: check that Ablcon is chosen as a Control Surface in Live, and
+- **Dot stays red ("Live not found")**: check that Ablecon is chosen as a Control Surface in Live, and
   that you restarted Live after installing the script. Live writes the script's messages to its log
-  (`~/Library/Preferences/Ableton/Live <version>/Log.txt`); search it for `Ablcon:`. A message like
+  (`~/Library/Preferences/Ableton/Live <version>/Log.txt`); search it for `Ablecon:`. A message like
   `could not open UDP port 11100` means another program is using that port.
-- **"Port 8420 is already in use"**: another Ablcon is running (perhaps from Terminal). Quit it.
+- **"Port 8420 is already in use"**: another Ablecon is running (perhaps from Terminal). Quit it.
 - **Phones can't connect**: they must be on the same network as the Mac, and macOS must allow incoming
-  connections for Ablcon (**System Settings → Network → Firewall → Options**). Some guest Wi-Fi networks
+  connections for Ablecon (**System Settings → Network → Firewall → Options**). Some guest Wi-Fi networks
   block devices from talking to each other.
 - **A song is missing**: its locator name must start with `*`. Check **Locator notes** on the page.
 
@@ -321,12 +328,12 @@ Other commands:
 | Command | What it does |
 | --- | --- |
 | `npm run app` | Builds and runs the Mac app in development. |
-| `npm run dist` | Builds `release/Ablcon-<version>-arm64.dmg` and `-x64.dmg` (unsigned). |
+| `npm run dist` | Builds `release/Ablecon-<version>-arm64.dmg` and `-x64.dmg` (unsigned). |
 | `npm run icon` | Redraws `build/icon.png`. |
 | `npm run test:all` | Type check, Node tests and Python tests. |
 
-Environment variables: `ABLCON_PORT` (web page, default 8420), `ABLCON_LIVE_PORT` (Remote Script UDP
-port, default 11100; the script itself always listens on 11100), `ABLCON_SETLIST` (setlist file, `npm start` only).
+Environment variables: `ABLECON_PORT` (web page, default 8420), `ABLECON_LIVE_PORT` (Remote Script UDP
+port, default 11100; the script itself always listens on 11100), `ABLECON_SETLIST` (setlist file, `npm start` only).
 
 ### Layout
 
@@ -340,7 +347,7 @@ src/planning.ts        Tempo/key planning, what is safe to change while playing,
 src/liveClient.ts      Talks to the Remote Script (requests, chunked replies, position pushes)
 src/osc.ts             OSC 1.0 message encoder/decoder
 public/                Control page (plain HTML/CSS/JS, no build step)
-remote_script/Ablcon/  The Remote Script that runs inside Live
+remote_script/Ablecon/  The Remote Script that runs inside Live
 remote_script/fake_live/  Fake Live set + UDP server for development and tests
 test/                  Node tests (node:test), including a TypeScript fake Live
 remote_script/tests/   Python tests for the Remote Script
@@ -352,10 +359,10 @@ OSC messages over UDP on 127.0.0.1. The script listens on port 11100 and replies
 
 | Direction | Address | Arguments |
 | --- | --- | --- |
-| app → Live | `/ablcon/req` | `id:int`, `method:string`, `args:JSON string` |
-| Live → app | `/ablcon/res` | `id:int`, `part:int`, `parts:int`, `chunk:string` (joined chunks are `{"ok":true,"result":…}` or `{"ok":false,"error":…}`) |
-| Live → app | `/ablcon/pos` | `beats:float`, `playing:int`, `tempo:float`, `loop:int`, `loopStart:float`, `loopLength:float` (sent when it changes) |
-| Live → app | `/ablcon/changed` | `"cues"` when locators change, `"tracks"` when track names or mutes change |
+| app → Live | `/ablecon/req` | `id:int`, `method:string`, `args:JSON string` |
+| Live → app | `/ablecon/res` | `id:int`, `part:int`, `parts:int`, `chunk:string` (joined chunks are `{"ok":true,"result":…}` or `{"ok":false,"error":…}`) |
+| Live → app | `/ablecon/pos` | `beats:float`, `playing:int`, `tempo:float`, `loop:int`, `loopStart:float`, `loopLength:float` (sent when it changes) |
+| Live → app | `/ablecon/changed` | `"cues"` when locators change, `"tracks"` when track names or mutes change |
 
 Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `tempo {bpm}`,
 `loop {start, length, enabled}`, `tracks {start, end}`, `apply {ops}`, `mixer`,
@@ -387,15 +394,15 @@ Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `t
 
 ## What has not been checked against a real Live
 
-Most of Ablcon was tested against fakes that model the parts of Live's API it uses. Checked in a real
+Most of Ablecon was tested against fakes that model the parts of Live's API it uses. Checked in a real
 Live set so far: the Remote Script loads and connects, locators and the Sections track are read
 correctly, the track list and mutes, and starting playback exactly at a song or section.
 
-How Ablcon starts playback, learned from testing in Live: moving the playhead while Live is stopped
+How Ablecon starts playback, learned from testing in Live: moving the playhead while Live is stopped
 changes only the display. Live's Play starts from its start marker, and "continue" starts where
-playback last stopped. So Ablcon's Remote Script moves Live's start marker (`Song.start_time`) as
-well. That also means Live's own space bar starts at the song you picked in Ablcon. With an older
-Remote Script (before 1.1.0), Ablcon starts playback and then jumps, so a moment of the wrong audio can
+playback last stopped. So Ablecon's Remote Script moves Live's start marker (`Song.start_time`) as
+well. That also means Live's own space bar starts at the song you picked in Ablecon. With an older
+Remote Script (before 1.1.0), Ablecon starts playback and then jumps, so a moment of the wrong audio can
 be heard; the page asks you to update the script when that happens.
 
 Still to check in Live 11 and 12:
@@ -404,10 +411,10 @@ Still to check in Live 11 and 12:
 - How cleanly a **Next section** jump sounds in a real set (the timing logic is tested against the fakes).
 - Setting `Clip.pitch_coarse`, and that the Pitch MIDI effect reports `class_name` `"MidiPitcher"` with a
   parameter named `"Pitch"`. (Reading locators, arrangement clips, `warping` and groups works.)
-- Muting and soloing from Ablcon, `Track.muted_via_solo`, and that checking every track's mute state ten times a
+- Muting and soloing from Ablecon, `Track.muted_via_solo`, and that checking every track's mute state ten times a
   second costs nothing noticeable in a large set.
-- How far past a song's end Live plays before Ablcon stops it, and whether that is audible.
-- Running time for songs in time signatures other than x/4 (Ablcon assumes Live's beat counts match its BPM).
+- How far past a song's end Live plays before Ablecon stops it, and whether that is audible.
+- Running time for songs in time signatures other than x/4 (Ablecon assumes Live's beat counts match its BPM).
 - The Mac app: it was built and launched on Apple Silicon and served the page against the fake Live.
   The Intel build was not launched, the **Install Remote Script** menu was not run (to avoid writing
   into a real Live library), and the unsigned-app and firewall prompts weren't walked through.

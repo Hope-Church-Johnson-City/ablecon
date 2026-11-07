@@ -10,10 +10,10 @@ test('encodes known bytes (matches the OSC 1.0 spec and the Python side)', () =>
 });
 
 test('round-trips every supported type', () => {
-  const buf = encodeMessage('/ablcon/req', [int(-5), float(0.5), { type: 'd', value: 1.25 }, str('héllo ✓'), { type: 'T' }, { type: 'F' }, str('')]);
+  const buf = encodeMessage('/ablecon/req', [int(-5), float(0.5), { type: 'd', value: 1.25 }, str('héllo ✓'), { type: 'T' }, { type: 'F' }, str('')]);
   assert.equal(buf.length % 4, 0);
   const msg = decodeMessage(buf);
-  assert.equal(msg.address, '/ablcon/req');
+  assert.equal(msg.address, '/ablecon/req');
   assert.deepEqual(argValues(msg), [-5, 0.5, 1.25, 'héllo ✓', true, false, '']);
 });
 

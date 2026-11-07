@@ -1,4 +1,4 @@
-"""Run the real Ablcon request handlers against a fake Live set over UDP.
+"""Run the real Ablecon request handlers against a fake Live set over UDP.
 
     python3 remote_script/fake_live/fake_live_server.py [--port 11100]
 
@@ -13,11 +13,11 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))  # remote_script/ -> import Ablcon
+sys.path.insert(0, os.path.dirname(HERE))  # remote_script/ -> import Ablecon
 sys.path.insert(0, HERE)
 
-from Ablcon import handlers  # noqa: E402
-from Ablcon.protocol import Dispatcher, changed_message, position_message  # noqa: E402
+from Ablecon import handlers  # noqa: E402
+from Ablecon.protocol import Dispatcher, changed_message, position_message  # noqa: E402
 from fake_song import demo_song, plain_song  # noqa: E402
 
 

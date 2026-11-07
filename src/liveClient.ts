@@ -1,5 +1,5 @@
-// Talks to the Ablcon Remote Script inside Live over OSC/UDP on localhost.
-// Protocol: see remote_script/Ablcon/protocol.py.
+// Talks to the Ablecon Remote Script inside Live over OSC/UDP on localhost.
+// Protocol: see remote_script/Ablecon/protocol.py.
 
 import dgram from 'node:dgram';
 import { EventEmitter } from 'node:events';
@@ -95,10 +95,10 @@ export class LiveClient extends EventEmitter<LiveClientEvents> {
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error(`Live did not answer "${method}" (is the Ablcon control surface enabled?)`));
+        reject(new Error(`Live did not answer "${method}" (is the Ablecon control surface enabled?)`));
       }, this.timeoutMs);
       this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject, timer, chunks: [], received: 0 });
-      const msg = encodeMessage('/ablcon/req', [int(id), str(method), str(JSON.stringify(args))]);
+      const msg = encodeMessage('/ablecon/req', [int(id), str(method), str(JSON.stringify(args))]);
       socket.send(msg, this.port, this.host);
     });
   }
@@ -113,9 +113,9 @@ export class LiveClient extends EventEmitter<LiveClientEvents> {
     } catch {
       return;
     }
-    if (address === '/ablcon/res') this.onReply(values);
-    else if (address === '/ablcon/pos') this.onPosition(values);
-    else if (address === '/ablcon/changed') this.emit('changed', String(values[0] ?? ''));
+    if (address === '/ablecon/res') this.onReply(values);
+    else if (address === '/ablecon/pos') this.onPosition(values);
+    else if (address === '/ablecon/changed') this.emit('changed', String(values[0] ?? ''));
   }
 
   private onReply(values: Array<number | string | boolean>): void {

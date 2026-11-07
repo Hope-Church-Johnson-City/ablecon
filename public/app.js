@@ -1,4 +1,4 @@
-// Ablcon web UI. Plain JavaScript, no build step.
+// Ablecon web UI. Plain JavaScript, no build step.
 'use strict';
 
 const $ = (sel) => document.querySelector(sel);
@@ -21,7 +21,7 @@ let editing = false;
 let tapMode = 'jump';
 let renderDeferred = false;
 let tracksOpen = true;
-try { tracksOpen = localStorage.getItem('ablcon.tracksOpen') !== 'no'; } catch { /* storage blocked */ }
+try { tracksOpen = localStorage.getItem('ablecon.tracksOpen') !== 'no'; } catch { /* storage blocked */ }
 
 // ---- formatting --------------------------------------------------------------
 
@@ -71,7 +71,7 @@ function connect() {
 
 function send(action, extra = {}) {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
-    toast('Not connected to the Ablcon server.', 'error');
+    toast('Not connected to the Ablecon server.', 'error');
     return;
   }
   socket.send(JSON.stringify({ id: nextId++, action, ...extra }));
@@ -207,10 +207,10 @@ function renderWarnings() {
 
 // Groups the user opened or closed by hand on this device, by group name.
 let groupChoice = {};
-try { groupChoice = JSON.parse(localStorage.getItem('ablcon.groups') || '{}') || {}; } catch { /* storage blocked */ }
+try { groupChoice = JSON.parse(localStorage.getItem('ablecon.groups') || '{}') || {}; } catch { /* storage blocked */ }
 function rememberGroup(name, open) {
   groupChoice[name] = open;
-  try { localStorage.setItem('ablcon.groups', JSON.stringify(groupChoice)); } catch { /* storage blocked */ }
+  try { localStorage.setItem('ablecon.groups', JSON.stringify(groupChoice)); } catch { /* storage blocked */ }
 }
 
 /** Turn Live's flat track list into a tree, using each track's group depth. */
@@ -480,7 +480,7 @@ $('#nextSectionBtn').onclick = () => send(state && state.pendingJump ? 'cancelJu
 $('#clearSolosBtn').onclick = () => send('clearSolos');
 $('#tracksBtn').onclick = () => {
   tracksOpen = !tracksOpen;
-  try { localStorage.setItem('ablcon.tracksOpen', tracksOpen ? 'yes' : 'no'); } catch { /* storage blocked */ }
+  try { localStorage.setItem('ablecon.tracksOpen', tracksOpen ? 'yes' : 'no'); } catch { /* storage blocked */ }
   renderTracks();
 };
 $('#editBtn').onclick = () => {
@@ -504,7 +504,7 @@ $('#settingsBtn').onclick = async () => {
 function setLook(look) {
   if (look === 'stage') delete document.documentElement.dataset.look;
   else document.documentElement.dataset.look = look;
-  try { localStorage.setItem('ablcon.look', look); } catch { /* storage blocked */ }
+  try { localStorage.setItem('ablecon.look', look); } catch { /* storage blocked */ }
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
 }

@@ -5,20 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101418">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Ablcon</title>
+  <title>Ablecon</title>
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="themes.css">
   <script>
     // Apply the look before the page draws, so it never flashes the default.
     try {
-      var look = new URLSearchParams(location.search).get('look') || localStorage.getItem('ablcon.look');
+      // Settings saved before the rename from "Ablcon" carry over once.
+      ['look', 'tracksOpen', 'groups'].forEach(function (k) {
+        var old = localStorage.getItem('ablcon.' + k);
+        if (old !== null && localStorage.getItem('ablecon.' + k) === null) localStorage.setItem('ablecon.' + k, old);
+      });
+    } catch (e) { /* storage blocked */ }
+    try {
+      var look = new URLSearchParams(location.search).get('look') || localStorage.getItem('ablecon.look');
       if (look && look !== 'stage') document.documentElement.dataset.look = look;
     } catch (e) { /* storage blocked */ }
   </script>
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">Ablcon</div>
+    <div class="brand">Ablecon</div>
     <div id="link" class="link off" title="Connection to Live"><span class="dot"></span><span id="linkText">Connecting…</span></div>
     <div class="spacer"></div>
     <div class="setlen" title="Total running time of every song in the setlist">Set <strong id="setLength">–</strong></div>

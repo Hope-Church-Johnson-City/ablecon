@@ -15,7 +15,7 @@ export interface LiveLink extends EventEmitter {
 }
 
 export interface KeyStatus {
-  semitones: number | null; // what Ablcon last set for this song
+  semitones: number | null; // what Ablecon last set for this song
   pending: boolean; // some changes wait until Live stops
   warnings: string[];
   error: string | null;
@@ -50,7 +50,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
   signature: [number, number] = [4, 4];
   /** A "next section" jump waiting for its bar line, if any. */
   pendingJump: { songId: string; sectionIndex: number; name: string; at: number; to: number } | null = null;
-  private tempoOverridden = false; // Ablcon set a tempo, so Live's tempo automation is overridden
+  private tempoOverridden = false; // Ablecon set a tempo, so Live's tempo automation is overridden
   private restoreWarned = false;
   tracks: MixerTrack[] = [];
   private mixerRead = 0; // newest track-list read; older replies are dropped
@@ -141,7 +141,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
       this.position = { ...this.position, ...state };
       const sig = (state as { signature?: [number, number] }).signature;
       if (Array.isArray(sig) && sig.length === 2) this.signature = sig;
-      // Tempo automation overridden before Ablcon started (or by an earlier
+      // Tempo automation overridden before Ablecon started (or by an earlier
       // run): hand it back as soon as a song without its own tempo is chosen.
       if ((state as { automationOverridden?: boolean }).automationOverridden) this.tempoOverridden = true;
       const sectionClips = await this.readSectionClips(cueReply.cues, cueReply.songLength);
@@ -426,8 +426,8 @@ export class Controller extends EventEmitter<ControllerEvents> {
   /**
    * Start playback exactly at `beats`. Live's own Play starts from its start
    * marker and "continue" from where it last stopped, so neither follows the
-   * playhead Ablcon moved; the Remote Script's play_from moves the start
-   * marker first. A Remote Script from an older Ablcon lacks play_from: then
+   * playhead Ablecon moved; the Remote Script's play_from moves the start
+   * marker first. A Remote Script from an older Ablecon lacks play_from: then
    * start and jump once Live reports it's playing (a moment of the wrong
    * audio can be heard, so the user is told to update the script).
    */

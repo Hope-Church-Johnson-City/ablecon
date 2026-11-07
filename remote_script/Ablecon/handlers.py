@@ -1,4 +1,4 @@
-"""Request handlers for the Ablcon Remote Script.
+"""Request handlers for the Ablecon Remote Script.
 
 Every handler takes the Live Song object and a dict of arguments and returns
 something JSON-serialisable. Nothing here imports Live modules, so the same
@@ -32,7 +32,7 @@ def _safe(fn, default=None):
 
 
 def ping(song, args, app_version=None):
-    return {"script": "ablcon", "version": SCRIPT_VERSION, "live": app_version}
+    return {"script": "ablecon", "version": SCRIPT_VERSION, "live": app_version}
 
 
 def state(song, args):
@@ -94,7 +94,7 @@ def stop(song, args):
 # Live has two start points besides the visible playhead: start_playing()
 # begins at the start marker (Song.start_time) and continue_playing() at the
 # position where playback last stopped. Moving current_song_time while stopped
-# changes neither, so a later Play would start somewhere else. Ablcon moves the
+# changes neither, so a later Play would start somewhere else. Ablecon moves the
 # start marker too, and falls back to "start, then jump" if this Live has no
 # start_time.
 _pending_jump = {"beats": None}
@@ -139,7 +139,7 @@ def play_from(song, args):
 
 
 # A jump scheduled for a later beat (e.g. "next section in two bars").
-# Ablcon's server only sees the playhead ~10 times a second, so the timing
+# Ablecon's server only sees the playhead ~10 times a second, so the timing
 # lives here, on Live's own tick.
 _scheduled = {"at": None, "to": None, "seen": None}
 
@@ -222,7 +222,7 @@ def tempo(song, args):
 
 
 def restore_tempo(song, args):
-    """Hand tempo back to the set's tempo automation after Ablcon overrode it.
+    """Hand tempo back to the set's tempo automation after Ablecon overrode it.
 
     Setting Song.tempo in a set with tempo automation overrides that
     automation everywhere (Live lights its "Re-enable Automation" button).

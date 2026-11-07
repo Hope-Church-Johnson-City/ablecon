@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ablcon looks</title>
+  <title>Ablecon looks</title>
   <style>
     :root { color-scheme: dark; }
     body { margin: 0; padding: 20px; background: #0c0f12; color: #e8edf2; font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -23,7 +23,7 @@
 </head>
 <body>
   <h1>Pick a look</h1>
-  <p class="lead">These are live previews of this Ablcon (tapping them does nothing). Each device keeps its own look; you can also change it any time in Settings.</p>
+  <p class="lead">These are live previews of this Ablecon (tapping them does nothing). Each device keeps its own look; you can also change it any time in Settings.</p>
   <div class="grid" id="grid"></div>
   <script>
     const LOOKS = [
@@ -34,7 +34,7 @@
       ['compact', 'Compact', 'Stage colours, tighter, fits more on a laptop'],
     ];
     let current = 'stage';
-    try { current = localStorage.getItem('ablcon.look') || 'stage'; } catch (e) { /* storage blocked */ }
+    try { current = localStorage.getItem('ablecon.look') || 'stage'; } catch (e) { /* storage blocked */ }
     const grid = document.getElementById('grid');
     for (const [id, name, about] of LOOKS) {
       const card = document.createElement('div');
@@ -43,7 +43,7 @@
         <div class="frame"><iframe src="./?look=${id}" title="${name} preview" tabindex="-1"></iframe></div>
         <button type="button">${id === current ? 'In use on this device' : 'Use this look'}</button>`;
       card.querySelector('button').onclick = () => {
-        try { localStorage.setItem('ablcon.look', id); } catch (e) { /* storage blocked */ }
+        try { localStorage.setItem('ablecon.look', id); } catch (e) { /* storage blocked */ }
         location.href = './';
       };
       grid.append(card);

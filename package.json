@@ -1,5 +1,5 @@
 {
-  "name": "ablcon",
+  "name": "ablecon",
   "version": "1.0.0",
   "private": true,
   "description": "Setlist and remote control for Ableton Live, from any browser on your network.",
@@ -32,8 +32,8 @@
   "main": "app/main.js",
   "author": "Jeremy Palacio",
   "build": {
-    "appId": "local.ablcon.app",
-    "productName": "Ablcon",
+    "appId": "local.ablecon.app",
+    "productName": "Ablecon",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -46,8 +46,8 @@
     ],
     "extraResources": [
       {
-        "from": "remote_script/Ablcon",
-        "to": "remote_script/Ablcon",
+        "from": "remote_script/Ablecon",
+        "to": "remote_script/Ablecon",
         "filter": [
           "*.py"
         ]
@@ -68,8 +68,8 @@
       ]
     },
     "dmg": {
-      "title": "Ablcon ${version}",
-      "artifactName": "Ablcon-${version}-${arch}.${ext}"
+      "title": "Ablecon ${version}",
+      "artifactName": "Ablecon-${version}-${arch}.${ext}"
     }
   }
 }

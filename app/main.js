@@ -1,5 +1,5 @@
-// Ablcon Mac app (Electron main process).
-// Runs the Ablcon server inside the app, shows the control page in a window,
+// Ablecon Mac app (Electron main process).
+// Runs the Ablecon server inside the app, shows the control page in a window,
 // and installs the Remote Script into Ableton Live's User Library.
 
 import { app, BrowserWindow, clipboard, dialog, Menu, powerSaveBlocker, shell } from 'electron';
@@ -9,16 +9,31 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = Number(process.env.ABLCON_PORT ?? 8420);
+const PORT = Number(process.env.ABLECON_PORT ?? 8420);
 const DEFAULT_USER_LIBRARY = path.join(os.homedir(), 'Music', 'Ableton', 'User Library');
 
 let server = null;
 let win = null;
 
-const setlistPath = () => path.join(app.getPath('userData'), 'ablcon-setlist.json');
+const setlistPath = () => path.join(app.getPath('userData'), 'ablecon-setlist.json');
 const bundledScript = () =>
-  app.isPackaged ? path.join(process.resourcesPath, 'remote_script', 'Ablcon') : path.join(appRoot, 'remote_script', 'Ablcon');
-const installedScript = (userLibrary = DEFAULT_USER_LIBRARY) => path.join(userLibrary, 'Remote Scripts', 'Ablcon');
+  app.isPackaged ? path.join(process.resourcesPath, 'remote_script', 'Ablecon') : path.join(appRoot, 'remote_script', 'Ablecon');
+const installedScript = (userLibrary = DEFAULT_USER_LIBRARY) => path.join(userLibrary, 'Remote Scripts', 'Ablecon');
+// The app was called "Ablcon" before; its script folder and setlist are carried over.
+const legacyScript = (userLibrary = DEFAULT_USER_LIBRARY) => path.join(userLibrary, 'Remote Scripts', 'Ablcon');
+const legacySetlist = () => path.join(app.getPath('appData'), 'Ablcon', 'ablcon-setlist.json');
+
+/** First run after the rename: copy the old setlist so tempos, keys and order are kept. */
+async function migrateSetlist() {
+  try {
+    if (!existsSync(setlistPath()) && existsSync(legacySetlist())) {
+      await fs.mkdir(path.dirname(setlistPath()), { recursive: true });
+      await fs.copyFile(legacySetlist(), setlistPath());
+    }
+  } catch (err) {
+    console.error('Could not carry over the old setlist:', err);
+  }
+}
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -28,6 +43,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 async function start() {
+  await migrateSetlist();
   // Keep timers and the network running when the window is hidden (App Nap
   // would otherwise slow the server down while you use Live).
   powerSaveBlocker.start('prevent-app-suspension');
@@ -43,8 +59,8 @@ async function start() {
   } catch (err) {
     const busy = err && err.code === 'EADDRINUSE';
     dialog.showErrorBox(
-      'Ablcon could not start',
-      busy ? `Port ${PORT} is already in use. Is Ablcon already running (perhaps from Terminal)?` : String(err && err.message ? err.message : err),
+      'Ablecon could not start',
+      busy ? `Port ${PORT} is already in use. Is Ablecon already running (perhaps from Terminal)?` : String(err && err.message ? err.message : err),
     );
     app.quit();
     return;
@@ -52,7 +68,8 @@ async function start() {
 
   buildMenu();
   showWindow();
-  if (!existsSync(installedScript()) && !process.env.ABLCON_NO_PROMPTS) offerScriptInstall();
+  if (!existsSync(installedScript()) && !process.env.ABLECON_NO_PROMPTS) offerScriptInstall();
+  else if (existsSync(legacyScript()) && !process.env.ABLECON_NO_PROMPTS) offerScriptInstall();
 }
 
 function showWindow() {
@@ -67,7 +84,7 @@ function showWindow() {
     height: 820,
     minWidth: 380,
     minHeight: 500,
-    title: 'Ablcon',
+    title: 'Ablecon',
     backgroundColor: '#101418',
     webPreferences: { backgroundThrottling: false, contextIsolation: true, sandbox: true },
   });
@@ -85,8 +102,8 @@ function showWindow() {
 async function offerScriptInstall() {
   const { response } = await dialog.showMessageBox({
     type: 'question',
-    message: 'Install the Ablcon Remote Script into Ableton Live?',
-    detail: 'Ablcon talks to Live through a small script that lives in your Live User Library. You can do this later from the File menu.',
+    message: 'Install the Ablecon Remote Script into Ableton Live?',
+    detail: 'Ablecon talks to Live through a small script that lives in your Live User Library. You can do this later from the File menu.',
     buttons: ['Install', 'Not now'],
     defaultId: 0,
     cancelId: 1,
@@ -112,7 +129,7 @@ async function installScript() {
     if (existsSync(target)) {
       const { response } = await dialog.showMessageBox({
         type: 'question',
-        message: 'Replace the installed Ablcon Remote Script?',
+        message: 'Replace the installed Ablecon Remote Script?',
         detail: target,
         buttons: ['Replace', 'Cancel'],
         defaultId: 0,
@@ -126,11 +143,20 @@ async function installScript() {
       recursive: true,
       filter: (src) => !src.includes('__pycache__') && !src.endsWith('.pyc'),
     });
+    // The script from before the rename would fight the new one for the same port.
+    let removedOld = false;
+    const legacy = legacyScript(userLibrary);
+    if (existsSync(legacy)) {
+      await shell.trashItem(legacy);
+      removedOld = true;
+    }
     await dialog.showMessageBox({
       type: 'info',
       message: 'Remote Script installed',
       detail:
-        'Now restart Live. In Live’s Settings (Preferences in Live 11) open “Link, Tempo & MIDI”, and in an empty Control Surface slot choose “Ablcon”. Leave its Input and Output set to None.\n\nInstalled to:\n' + target,
+        'Now restart Live. In Live’s Settings (Preferences in Live 11) open “Link, Tempo & MIDI”, and in an empty Control Surface slot choose “Ablecon”. Leave its Input and Output set to None.' +
+        (removedOld ? '\n\nThe old “Ablcon” script was moved to the Trash; if a slot still shows it, set that slot to None.' : '') +
+        '\n\nInstalled to:\n' + target,
     });
   } catch (err) {
     dialog.showErrorBox('Could not install the Remote Script', String(err && err.message ? err.message : err));
@@ -143,7 +169,7 @@ async function showAddresses() {
   const urls = server.urls;
   const { response } = await dialog.showMessageBox({
     type: 'info',
-    message: 'Open Ablcon on a phone, tablet or laptop',
+    message: 'Open Ablecon on a phone, tablet or laptop',
     detail: `Connect the device to the same network as this Mac, then open:\n\n${urls.join('\n')}`,
     buttons: ['Copy Address', 'Done'],
     defaultId: 1,

@@ -144,7 +144,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     });
   });
 
-  live.on('connection', (up) => log(up ? `Connected to Live ${live.liveVersion ?? ''}`.trim() : 'Waiting for Live (is the Ablcon control surface selected?)'));
+  live.on('connection', (up) => log(up ? `Connected to Live ${live.liveVersion ?? ''}`.trim() : 'Waiting for Live (is the Ablecon control surface selected?)'));
   await live.start();
 
   const running: RunningServer = {

@@ -1,8 +1,8 @@
 """Minimal OSC 1.0 message encoder/decoder.
 
-Only what Ablcon needs: messages (no bundles) with int32 (i), float32 (f),
+Only what Ablecon needs: messages (no bundles) with int32 (i), float32 (f),
 string (s), double (d), true (T) and false (F) arguments.
-Written for Ablcon; no third-party code.
+Written for Ablecon; no third-party code.
 """
 import struct
 

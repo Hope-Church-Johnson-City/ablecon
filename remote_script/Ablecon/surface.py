@@ -15,10 +15,10 @@ LISTEN_PORT = 11100
 CUE_CHECK_TICKS = 10  # check for locator edits about once a second
 
 
-class AblconSurface(object):
+class AbleconSurface(object):
     def __init__(self, c_instance):
         self._c = c_instance
-        self._client = None  # address of the last Ablcon server that talked to us
+        self._client = None  # address of the last Ablecon server that talked to us
         self._last_pos = None
         self._last_cues = None
         self._last_mixer = None
@@ -40,7 +40,7 @@ class AblconSurface(object):
     # -- helpers -----------------------------------------------------------
     def _log(self, msg):
         try:
-            self._c.log_message("Ablcon: " + msg)
+            self._c.log_message("Ablecon: " + msg)
         except Exception:
             pass
 
