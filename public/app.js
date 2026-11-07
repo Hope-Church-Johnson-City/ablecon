@@ -159,7 +159,7 @@ function renderSetlist() {
 function songItem(row, i) {
   const tags = [];
   const keyTag = keyLabel(row);
-  if (keyTag) tags.push(el('span', { class: 'tag', title: row.semitones ? `${keyText(row.semitones)} semitones` : 'Original key' }, keyTag));
+  if (keyTag) tags.push(el('span', { class: 'tag key', title: row.semitones ? `${keyText(row.semitones)} semitones` : 'Original key' }, keyTag));
   if (!row.missing) tags.push(tempoTag(row));
   if (row.key && row.key.pending) tags.push(el('span', { class: 'tag pending', title: 'Finishes when Live stops' }, 'Key waiting'));
   if (row.key && (row.key.warnings.length || row.key.error)) tags.push(el('span', { class: 'tag warn' }, '⚠'));
@@ -176,18 +176,21 @@ function songItem(row, i) {
     }, '▶'),
   );
 
+  // Fixed rows, so no control ever moves when a value changes (a key change
+  // used to push the Key controls onto a new line under the user's finger).
   const edit = el('div', { class: 'edit' },
-    el('button', { class: 'small', disabled: i === 0, 'aria-label': 'Move up', onclick: () => send('move', { from: i, to: i - 1 }) }, '↑'),
-    el('button', { class: 'small', disabled: i === state.rows.length - 1, 'aria-label': 'Move down', onclick: () => send('move', { from: i, to: i + 1 }) }, '↓'),
-    el('label', {}, 'Tempo',
-      el('input', {
-        type: 'number', inputmode: 'decimal', min: 20, max: 999, step: 'any', placeholder: 'as set',
-        value: row.tempo ?? '',
-        onchange: (e) => send('tempo', { songId: row.songId, tempo: e.target.value }),
-        onblur: () => renderDeferred && setTimeout(renderSetlist, 0),
-      })),
-    row.missing ? null : keyStepper(row),
-    row.missing ? el('button', { class: 'small', onclick: () => send('remove', { songId: row.songId }) }, 'Remove') : null,
+    el('div', { class: 'edit-row' },
+      el('button', { class: 'small', disabled: i === 0, 'aria-label': 'Move up', onclick: () => send('move', { from: i, to: i - 1 }) }, '↑'),
+      el('button', { class: 'small', disabled: i === state.rows.length - 1, 'aria-label': 'Move down', onclick: () => send('move', { from: i, to: i + 1 }) }, '↓'),
+      el('label', {}, 'Tempo',
+        el('input', {
+          type: 'number', inputmode: 'decimal', min: 20, max: 999, step: 'any', placeholder: 'as set',
+          value: row.tempo ?? '',
+          onchange: (e) => send('tempo', { songId: row.songId, tempo: e.target.value }),
+          onblur: () => renderDeferred && setTimeout(renderSetlist, 0),
+        })),
+      row.missing ? el('button', { class: 'small', onclick: () => send('remove', { songId: row.songId }) }, 'Remove') : null),
+    row.missing ? null : el('div', { class: 'edit-row' }, keyStepper(row)),
     row.key && row.key.warnings.length ? el('ul', { class: 'warnlist' }, row.key.warnings.map((w) => el('li', {}, w))) : null,
     row.key && row.key.error ? el('div', { class: 'err' }, row.key.error) : null,
   );
@@ -203,11 +206,14 @@ function keyStepper(row) {
   const set = (n) => send('key', { songId: row.songId, semitones: n });
   return el('span', { class: 'stepper' },
     el('label', {}, 'Key'),
-    el('button', { class: 'small', disabled: value !== null && value <= -12, onclick: () => set((value ?? 0) - 1), 'aria-label': 'Key down' }, '−'),
-    el('output', {}, value === null ? 'off' : row.originalKey ? `${keyText(value)} (${row.playedKey})` : keyText(value)),
-    el('button', { class: 'small', disabled: value !== null && value >= 12, onclick: () => set((value ?? 0) + 1), 'aria-label': 'Key up' }, '+'),
-    value === null ? null : el('button', { class: 'small ghost', onclick: () => set(null), title: 'Stop managing the key of this song' }, 'Off'),
-    value === null ? null : el('button', { class: 'small', onclick: () => send('applyKey', { songId: row.songId }) }, 'Apply'),
+    // − value + stay together; Off and Apply may go to the next line on a narrow screen.
+    el('span', { class: 'knob' },
+      el('button', { class: 'small', disabled: value !== null && value <= -12, onclick: () => set((value ?? 0) - 1), 'aria-label': 'Key down' }, '−'),
+      el('output', {}, value === null ? 'off' : row.originalKey ? `${keyText(value)} (${row.playedKey})` : keyText(value)),
+      el('button', { class: 'small', disabled: value !== null && value >= 12, onclick: () => set((value ?? 0) + 1), 'aria-label': 'Key up' }, '+')),
+    // Off and Apply always take their space (hidden while the key is off) so nothing shifts.
+    el('button', { class: `small ghost${value === null ? ' reserve' : ''}`, disabled: value === null, 'aria-hidden': value === null ? 'true' : null, onclick: () => set(null), title: 'Stop managing the key of this song' }, 'Off'),
+    el('button', { class: `small${value === null ? ' reserve' : ''}`, disabled: value === null, 'aria-hidden': value === null ? 'true' : null, onclick: () => send('applyKey', { songId: row.songId }) }, 'Apply'),
   );
 }
 

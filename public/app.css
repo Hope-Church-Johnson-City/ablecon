@@ -104,11 +104,27 @@ main { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); ga
 .song.cued { border-color: var(--accent); }
 .song.current { border-color: var(--go); }
 .song.missing { opacity: 0.55; }
-.song .main { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: var(--row-pad) 12px; cursor: pointer; }
+/* The title row never changes shape when a value changes: key and tempo tags have fixed widths, the
+   name takes what's left (wrapping inside itself if long), and on narrow screens the tags always sit
+   on their own line. Otherwise a key change could move the edit controls below it. */
+.song .main { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px 10px; padding: var(--row-pad) 12px; cursor: pointer; }
 .song .num { width: 22px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
-.song .name { flex: 1 1 9em; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-.song .tags { display: flex; gap: 6px; font-size: 12px; color: var(--muted); }
-.tag { border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+.song .name { flex: 1 1 0; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.song .tags { display: flex; flex: 0 0 auto; gap: 6px; font-size: 12px; color: var(--muted); }
+.song .tag.key { min-width: 5.6em; text-align: center; }
+.song .tag.tempo { min-width: 5.6em; text-align: center; }
+.song .dur { min-width: 2.6em; text-align: right; }
+@media (max-width: 600px) {
+  .song .main { flex-wrap: wrap; }
+  .song .num { order: 0; }
+  .song .name { order: 1; flex: 1 1 calc(100% - 110px); }
+  .song .go-btn { order: 2; }
+  .song .tags { order: 3; margin-left: 32px; }
+  .song .dur { order: 4; margin-left: auto; }
+}
+/* Fixed height: a tag's text changing (e.g. "G" → "G → G#", the arrow is a taller glyph) must not
+   change the row's height and push the controls below it. */
+.tag { display: inline-block; height: 20px; line-height: 18px; border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; white-space: nowrap; }
 .tag.warn { border-color: var(--accent); color: var(--accent); }
 .tag.pending { border-color: var(--loop); color: var(--loop); }
 .tag.tempo { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -116,13 +132,17 @@ main { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); ga
 .tag.tempo.unknown { opacity: 0.6; }
 .song .dur { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
 .song .go-btn { padding: 6px 10px; }
-.song .edit { display: none; padding: 0 12px 12px; gap: 10px; flex-wrap: wrap; align-items: center; }
+.song .edit { display: none; flex-direction: column; padding: 0 12px 12px; gap: 8px; }
+.edit-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .editing .song .edit { display: flex; }
 .editing .song .go-btn { display: none; }
 .edit label { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
 .edit input { width: 76px; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
-.stepper { display: inline-flex; align-items: center; gap: 4px; }
-.stepper output { min-width: 40px; white-space: nowrap; text-align: center; color: var(--text); font-variant-numeric: tabular-nums; }
+.stepper { display: inline-flex; align-items: center; gap: 6px 4px; flex-wrap: wrap; min-width: 0; }
+.stepper .knob { display: inline-flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+/* Fixed width (fits "+12 (G#m)") so − and + never move as the value changes. */
+.stepper output { width: 6.2em; flex: 0 0 auto; white-space: nowrap; text-align: center; color: var(--text); font-variant-numeric: tabular-nums; }
+.stepper .reserve { visibility: hidden; }
 .edit .warnlist { flex-basis: 100%; margin: 0; padding-left: 18px; font-size: 13px; color: var(--accent); }
 .edit .err { flex-basis: 100%; font-size: 13px; color: var(--halt); }
 

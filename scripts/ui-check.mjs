@@ -134,6 +134,40 @@ async function main() {
     await until(() => rowTags(1)[0] === 'Bb');
     return true;`);
 
+  // The window size where the bug showed up (setlist column about 430px wide).
+  for (const [w, h] of [[1100, 900], [1280, 900], [375, 812]]) {
+    win.setContentSize(w, h);
+    await sleep(250);
+    await check(`key − and + stay in place when tapped (${w}px window)`, `
+      if (!$('#setlist').closest('.list').classList.contains('editing')) tap($('#editBtn'));
+      await wait(50);
+      const plus = () => rows()[0].querySelector('[aria-label="Key up"]');
+      const minus = () => rows()[0].querySelector('[aria-label="Key down"]');
+      // Position on the page (not the screen), so scrolling doesn't count as moving.
+      const at = (el) => { const r = el.getBoundingClientRect(); return Math.round(r.left + scrollX) + ',' + Math.round(r.top + scrollY); };
+      const where = [at(plus()) + ' / ' + at(minus())];
+      for (const step of ['+', '+', '−', '−', '−']) {
+        tap(step === '+' ? plus() : minus());
+        await wait(250);
+        where.push(at(plus()) + ' / ' + at(minus()));
+      }
+      tap(rows()[0].querySelector('button[title="Stop managing the key of this song"]'));
+      await until(() => rows()[0].querySelector('.stepper output').textContent === 'off');
+      where.push(at(plus()) + ' / ' + at(minus()));
+      // Nothing in the song's box may stick out of it (with the key on, Off and Apply showing).
+      tap(plus());
+      await wait(250);
+      const li = rows()[0].getBoundingClientRect();
+      const out = [...rows()[0].querySelectorAll('button, input, output, .tag')].filter((e) => { const r = e.getBoundingClientRect(); return r.width && (r.right > li.right + 0.5 || r.left < li.left - 0.5); }).map((e) => e.textContent || e.tagName);
+      tap(rows()[0].querySelector('button[title="Stop managing the key of this song"]'));
+      await wait(250);
+      tap($('#editBtn'));
+      if (out.length) return 'sticking out of the song box: ' + out.join(', ');
+      return new Set(where).size === 1 || 'buttons moved: ' + where.join('  →  ');`);
+  }
+  win.setContentSize(1280, 900);
+  await sleep(250);
+
   await check('a tempo set in Ablecon is highlighted, and clearing it goes back to the marker tempo', `
     const input = rows()[1].querySelector('input[type=number]');
     input.value = '90'; input.dispatchEvent(new Event('change'));
