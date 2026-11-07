@@ -4,6 +4,7 @@
 import dgram from 'node:dgram';
 import { argValues, decodeMessage, encodeMessage, float, int, str } from '../src/osc.ts';
 import type { Cue, KeyOp, TrackInfo } from '../src/types.ts';
+import { EXPECTED_SCRIPT_VERSION } from '../src/controller.ts';
 
 export interface FakeSet {
   cues: Cue[];
@@ -20,6 +21,7 @@ export class FakeLive {
   calls: Array<{ method: string; args: Record<string, unknown> }> = [];
   chunkSize = 6000;
   muted = new Set<number>(); // track indexes muted in the fake mixer
+  scriptVersion = EXPECTED_SCRIPT_VERSION;
   soloed = new Set<number>();
   // Like Live: "play" starts at the start marker and "continue" where playback last
   // stopped. Moving the playhead while stopped changes neither, unless the script
@@ -124,7 +126,7 @@ export class FakeLive {
   private handle(method: string, args: Record<string, unknown>): unknown {
     const s = this.set;
     switch (method) {
-      case 'ping': return { script: 'ablecon', version: 'test', live: '12.0.0' };
+      case 'ping': return { script: 'ablecon', version: this.scriptVersion, live: '12.0.0' };
       case 'state': return { beats: s.beats, playing: s.playing, tempo: s.tempo, loop: s.loop, automationOverridden: this.overridden };
       case 'cues': return { cues: s.cues, songLength: s.songLength };
       case 'play': s.beats = this.startMarker; s.playing = true; this.autoPush(); return true;

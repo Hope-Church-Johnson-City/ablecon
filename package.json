@@ -17,7 +17,9 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
     "test:python": "python3 -m unittest discover -s remote_script/tests",
-    "test:all": "npm run typecheck && npm test && npm run test:python"
+    "test:ui": "npm run build && electron scripts/ui-check.mjs",
+    "check": "npm run typecheck && npm test && npm run test:python && npm run test:ui",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "ws": "^8.18.0"

@@ -6,12 +6,30 @@ import { parseLocators, type SectionClip } from './locators.ts';
 import { barBeats, crossedEnd, endOfSongAction, flowsInto, nextSectionJumpPoint, planKey, planTempo, sectionIndexAt, songAt, splitKeyPlan } from './planning.ts';
 import * as setlist from './setlist.ts';
 import * as store from './store.ts';
+
+/**
+ * The Remote Script version this app expects (keep equal to SCRIPT_VERSION in
+ * remote_script/Ablecon/handlers.py; a test checks this).
+ */
+export const EXPECTED_SCRIPT_VERSION = '1.4.1';
+
+/** True when Live is running an older Ablecon Remote Script than this app needs. */
+export function isOlderScript(running: string | null): boolean {
+  if (!running) return false;
+  const a = running.split('.').map(Number);
+  const b = EXPECTED_SCRIPT_VERSION.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) < (b[i] ?? 0);
+  }
+  return false;
+}
 import type { Cue, KeyOp, MixerTrack, Position, SetlistFile, SetlistSettings, Song, TrackInfo } from './types.ts';
 
 /** The parts of LiveClient the controller uses (so tests can pass a stub). */
 export interface LiveLink extends EventEmitter {
   connected: boolean;
   liveVersion: string | null;
+  scriptVersion?: string | null;
   call<T = unknown>(method: string, args?: Record<string, unknown>): Promise<T>;
 }
 
@@ -121,6 +139,8 @@ export class Controller extends EventEmitter<ControllerEvents> {
     return {
       connected: this.live.connected,
       liveVersion: this.live.liveVersion,
+      scriptVersion: this.live.scriptVersion ?? null,
+      scriptOutdated: isOlderScript(this.live.scriptVersion ?? null),
       rows: rows.map((r) => ({ ...r, key: this.keyStatus.get(r.songId) ?? null })),
       totalSeconds,
       warnings: this.parseWarnings,

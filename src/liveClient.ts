@@ -38,6 +38,7 @@ export class LiveClient extends EventEmitter<LiveClientEvents> {
   private heartbeat: NodeJS.Timeout | null = null;
   connected = false;
   liveVersion: string | null = null;
+  scriptVersion: string | null = null; // version of the Remote Script running in Live
 
   constructor(opts: LiveClientOptions = {}) {
     super();
@@ -56,9 +57,10 @@ export class LiveClient extends EventEmitter<LiveClientEvents> {
     });
     await new Promise<void>((resolve) => socket.bind(0, '127.0.0.1', resolve));
     const beat = () => {
-      this.call<{ live: string | null }>('ping')
+      this.call<{ live: string | null; version?: string }>('ping')
         .then((r) => {
           this.liveVersion = r.live;
+          this.scriptVersion = r.version ?? null;
           this.setConnected(true);
         })
         .catch(() => this.setConnected(false));

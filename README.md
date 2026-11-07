@@ -348,7 +348,8 @@ Other commands:
 | `npm run app` | Builds and runs the Mac app in development. |
 | `npm run dist` | Builds `release/Ablecon-<version>-arm64.dmg` and `-x64.dmg` (unsigned). |
 | `npm run icon` | Redraws `build/icon.png`. |
-| `npm run test:all` | Type check, Node tests and Python tests. |
+| `npm run check` | Everything: type check, server tests, Remote Script tests and the page check. Commits are refused unless it passes (`.githooks/pre-commit`, enabled by `npm install`). |
+| `npm run test:ui` | Just the page check: the real page in a hidden window against the fake Live, feature by feature. |
 
 Environment variables: `ABLECON_PORT` (web page, default 8420), `ABLECON_LIVE_PORT` (Remote Script UDP
 port, default 11100; the script itself always listens on 11100), `ABLECON_SETLIST` (setlist file, `npm start` only).
@@ -390,7 +391,7 @@ Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `t
 
 ### Tests
 
-`npm run test:all` runs:
+`npm run check` runs everything below, plus the page check (`scripts/ui-check.mjs`), which opens the real page in a hidden window against the fake Live and checks each feature: songs, keys and tempos from markers, sections, cueing, Play position, Up next, key and tempo editing, Next section, groups, mute and solo, looks, phone layout and page errors. It runs:
 
 - **OSC encoding**: known bytes, every argument type, malformed input (Node and Python).
 - **Locator parsing**: both layouts, including the locators and Sections clips of a real worship set,

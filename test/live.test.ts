@@ -769,3 +769,15 @@ test("a song's own tempo is put back after reading the automation", async () => 
     done();
   }
 });
+
+test('the page is told when Live runs an older Remote Script', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.scriptVersion = '1.2.0';
+    await client.start();
+    await until(() => client.connected && controller.snapshot().scriptVersion === '1.2.0');
+    assert.equal(controller.snapshot().scriptOutdated, true);
+  } finally {
+    done();
+  }
+});

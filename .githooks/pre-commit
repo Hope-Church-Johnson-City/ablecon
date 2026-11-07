@@ -1,0 +1,14 @@
+#!/bin/sh
+# Refuses the commit unless every check passes (types, server tests, Remote
+# Script tests and the page check). Enabled with:
+#   git config core.hooksPath .githooks
+# Bypass only in an emergency: git commit --no-verify
+echo "Running npm run check before committing..."
+npm run check --silent >/tmp/ablecon-check.log 2>&1
+status=$?
+if [ $status -ne 0 ]; then
+  grep -E "^✖|^not ok|FAILED|error TS|failed" /tmp/ablecon-check.log | head -20
+  echo "Checks failed: commit refused. Full log: /tmp/ablecon-check.log"
+  exit 1
+fi
+echo "All checks passed."
