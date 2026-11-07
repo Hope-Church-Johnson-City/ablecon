@@ -132,10 +132,10 @@ A song with no section locators still gets its sections from the Sections track,
 - The last song ends at its end marker, or at the end of the arrangement if it has none.
 - In the marked layout, locators outside any song are ignored. The page lists them under
   **Locator notes** so you can spot typos. That list also warns about empty songs and repeated song names.
-- Songs are matched to setlist entries by title, not case-sensitive and ignoring the key in brackets, so
-  changing `(G)` to `(A)` in a locator keeps the song's tempo and key settings. Renaming a song makes it a
-  new song; the old entry stays in the setlist marked **Not in Live set** so you don't lose its settings.
-  Remove it in Edit mode once you're sure. If two songs have the same title, the second is told apart by
+- Songs are matched by title, not case-sensitive and ignoring the key in brackets, so changing `(G)` to
+  `(A)` in a locator keeps the song's tempo and key settings. Renaming a song makes it a new song. If the
+  old name had a tempo or key, it stays in the setlist marked **Not in Live set** so you don't lose them;
+  remove it in Edit mode once you're sure. If two songs have the same title, the second is told apart by
   its order.
 - Ablecon notices changes to locators and to the Sections track's clips within about a second.
   **Settings → Re-read locators** forces it (needed if your sections track has a name other than
@@ -273,6 +273,16 @@ The ⚠ tag on a song means there's something you should look at, listed under t
 - a MIDI track with clips in the song but no Pitch device,
 - a change Live refused (for example a track renamed since Ablecon read it; just apply again).
 
+### One setlist per Live set
+
+Each Live set gets its own setlist. Live doesn't tell a script which file is open, so Ablecon recognises
+a set by its songs: when you open a set, it uses the saved setlist with mostly the same songs (so
+renaming, adding or removing a song keeps your order). A set with mostly different songs, like next
+Sunday's, starts a new setlist in arrangement order. The last 60 sets are remembered.
+
+A song's **tempo and key belong to the song**, not the set: give King Of Kings a key once and it comes
+along to every later set that has King Of Kings.
+
 ### Where the setlist is saved
 
 - In the Mac app: `~/Library/Application Support/Ablecon/ablecon-setlist.json`
@@ -280,7 +290,9 @@ The ⚠ tag on a song means there's something you should look at, listed under t
 - When running from source with `npm start`: `ablecon-setlist.json` in the project folder, next to the
   server. Set `ABLECON_SETLIST=/path/to/file.json` to use another file, for example one per Live set.
 
-It's plain JSON (order, tempo, key per song, and the settings), safe to back up or copy between machines.
+It's plain JSON (each set's song order, each song's tempo and key, and the settings), safe to back up or
+copy between machines. A file from before setlists were kept per set is converted the first time it's
+used: songs from other sets that have no tempo or key are dropped.
 
 ---
 
@@ -379,6 +391,8 @@ Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `t
   `STOP` markers, keys in song names, ordering, comments, duplicates, warnings.
 - **Keys**: reading `(G)`, `(Bb)`, `(Em)` from names, transposing and spelling them.
 - **Setlist**: matching to Live, reordering, missing songs, tempo/key validation, durations, file round-trip.
+- **One setlist per Live set**: recognising a set by its songs, separate orders for different sets,
+  settings following a song between sets, converting the old shared setlist (tested with a real one).
 - **Tempo and key planning**: `[nokey]` tags (including on groups), warped/unwarped clips, clips crossing
   song edges, Pitch devices and their range, what may change while playing, end-of-song detection.
 - **Track mutes**: listing tracks, muting and unmuting, refusing a track that was renamed or moved,

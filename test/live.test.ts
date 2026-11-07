@@ -111,7 +111,32 @@ test('controller builds the setlist from locators and saves it', async () => {
     assert.equal(snap.totalSeconds, 32 * 0.5 + 32 * 0.5);
     await controller.move(1, 0);
     const saved = JSON.parse(await readFile(setlistPath, 'utf8'));
-    assert.deepEqual(saved.entries.map((e: { songId: string }) => e.songId), ['second', 'first']);
+    assert.equal(saved.version, 2);
+    assert.deepEqual(saved.sets.map((s: { songIds: string[] }) => s.songIds), [['second', 'first']]);
+  } finally {
+    done();
+  }
+});
+
+test('opening a different Live set shows its own setlist; reopening brings the first back', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await controller.move(1, 0); // this week's order: Second, First
+    await controller.setKey('first', 3);
+    // Open next week's set in Live (different songs, plus First again).
+    fake.set.cues = [{ name: 'Fresh', time: 0 }, { name: 'First', time: 16 }, { name: 'Other', time: 32 }, { name: 'STOP', time: 48 }];
+    fake.pushChanged('cues');
+    await until(() => controller.songs.some((s) => s.name === 'Fresh'));
+    await until(() => controller.snapshot().rows.length === 3);
+    assert.deepEqual(controller.snapshot().rows.map((r) => r.name), ['Fresh', 'First', 'Other']);
+    assert.equal(controller.snapshot().rows[1].semitones, 3, "First's key came along");
+    // Back to the first set.
+    fake.set.cues = demoSet().cues;
+    fake.pushChanged('cues');
+    await until(() => controller.snapshot().rows.length === 2 && controller.snapshot().rows[0].name === 'Second');
+    assert.deepEqual(controller.snapshot().rows.map((r) => r.name), ['Second', 'First']);
   } finally {
     done();
   }

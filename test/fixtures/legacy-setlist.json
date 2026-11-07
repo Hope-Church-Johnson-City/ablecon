@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "songId": "it really is amazing grace",
+      "name": "It Really Is Amazing Grace",
+      "tempo": 128,
+      "semitones": null,
+      "seenTempo": 95
+    },
+    {
+      "songId": "king of kings",
+      "name": "King Of Kings",
+      "tempo": null,
+      "semitones": 0,
+      "seenTempo": 68
+    },
+    {
+      "songId": "how great thou art",
+      "name": "How Great Thou Art",
+      "tempo": null,
+      "semitones": null,
+      "seenTempo": 128
+    },
+    {
+      "songId": "christ is enough",
+      "name": "Christ Is Enough",
+      "tempo": null,
+      "semitones": null,
+      "seenTempo": 80
+    },
+    {
+      "songId": "count off",
+      "name": "Count Off",
+      "tempo": null,
+      "semitones": null,
+      "seenTempo": 95
+    },
+    {
+      "songId": "intro",
+      "name": "Intro",
+      "tempo": null,
+      "semitones": null,
+      "seenTempo": 95
+    },
+    {
+      "songId": "intro#2",
+      "name": "Intro",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "verse 1",
+      "name": "Verse 1",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "verse 2",
+      "name": "Verse 2",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "chorus 1",
+      "name": "Chorus 1",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "verse 3",
+      "name": "Verse 3",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "verse 4",
+      "name": "Verse 4",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "chorus 1#2",
+      "name": "Chorus 1",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "chorus 2",
+      "name": "Chorus 2",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "bridge",
+      "name": "Bridge",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "bridge#2",
+      "name": "Bridge",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "bridge#3",
+      "name": "Bridge",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "bridge#4",
+      "name": "Bridge",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "chorus 1#3",
+      "name": "Chorus 1",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "chorus 2#2",
+      "name": "Chorus 2",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "bridge#5",
+      "name": "Bridge",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "bridge#6",
+      "name": "Bridge",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "bridge#7",
+      "name": "Bridge",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "bridge#8",
+      "name": "Bridge",
+      "tempo": null,
+      "semitones": null
+    },
+    {
+      "songId": "ending",
+      "name": "Ending",
+      "tempo": null,
+      "semitones": null
+    }
+  ],
+  "settings": {
+    "endOfSong": "stop",
+    "noKeyTag": "[nokey], click, guide",
+    "sectionsTrack": "Sections",
+    "jumpBars": 2
+  }
+}

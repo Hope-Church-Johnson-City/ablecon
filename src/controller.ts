@@ -5,6 +5,7 @@ import { EventEmitter } from 'node:events';
 import { parseLocators, type SectionClip } from './locators.ts';
 import { barBeats, crossedEnd, endOfSongAction, flowsInto, nextSectionJumpPoint, planKey, planTempo, sectionIndexAt, songAt, splitKeyPlan } from './planning.ts';
 import * as setlist from './setlist.ts';
+import * as store from './store.ts';
 import type { Cue, KeyOp, MixerTrack, Position, SetlistFile, SetlistSettings, Song, TrackInfo } from './types.ts';
 
 /** The parts of LiveClient the controller uses (so tests can pass a stub). */
@@ -50,6 +51,8 @@ export class Controller extends EventEmitter<ControllerEvents> {
   signature: [number, number] = [4, 4];
   /** A "next section" jump waiting for its bar line, if any. */
   pendingJump: { songId: string; sectionIndex: number; name: string; at: number; to: number } | null = null;
+  private store: store.StoreFile = store.emptyStore();
+  private setIndex = -1; // which stored setlist is open (-1: none yet)
   private tempoOverridden = false; // Ablecon set a tempo, so Live's tempo automation is overridden
   private restoreWarned = false;
   tracks: MixerTrack[] = [];
@@ -72,7 +75,8 @@ export class Controller extends EventEmitter<ControllerEvents> {
   }
 
   async init(): Promise<void> {
-    this.file = await setlist.loadSetlist(this.setlistPath);
+    this.store = await store.loadStore(this.setlistPath);
+    this.file = store.activeSetlist(this.store, -1);
   }
 
   // ---- helpers ---------------------------------------------------------------
@@ -98,9 +102,13 @@ export class Controller extends EventEmitter<ControllerEvents> {
     return this.file.entries.find((e) => e.songId === songId) ?? null;
   }
 
+  /** Keep `file` as the open set's setlist and write it (and song settings) to disk. */
   private async save(file: SetlistFile): Promise<void> {
     this.file = file;
-    await setlist.saveSetlist(this.setlistPath, file);
+    const next = store.commit(this.store, this.setIndex, file);
+    this.store = next.store;
+    this.setIndex = next.index;
+    await store.saveStore(this.setlistPath, this.store);
     this.emit('state');
   }
 
@@ -148,9 +156,15 @@ export class Controller extends EventEmitter<ControllerEvents> {
       const parsed = parseLocators(cueReply.cues, cueReply.songLength, sectionClips);
       this.songs = parsed.songs;
       this.parseWarnings = parsed.warnings;
-      const { file, changed } = setlist.reconcile(this.file, this.songs);
-      if (changed) await this.save(file);
-      else this.file = file;
+      if (this.songs.length > 0) {
+        // Use the setlist kept for this Live set (or start one for a new set).
+        const index = store.pickSet(this.store, this.songs);
+        const base = index === this.setIndex && index >= 0 ? this.file : store.activeSetlist(this.store, index);
+        this.setIndex = index;
+        const { file } = setlist.reconcile(base, this.songs);
+        await this.save(store.pruneMissing(store.withSongSettings(file, this.store), this.songs));
+        if (this.cuedId && !this.songs.some((s) => s.id === this.cuedId)) this.cuedId = null;
+      }
       await this.refreshTracks();
       this.emit('state');
     });
