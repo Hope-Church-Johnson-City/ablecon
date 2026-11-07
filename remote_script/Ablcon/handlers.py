@@ -5,7 +5,7 @@ something JSON-serialisable. Nothing here imports Live modules, so the same
 code runs under the unit tests with a fake Song.
 """
 
-SCRIPT_VERSION = "1.1.0"
+SCRIPT_VERSION = "1.2.0"
 
 # Class name Live reports for its built-in "Pitch" MIDI effect.
 PITCH_DEVICE_CLASS = "MidiPitcher"
@@ -237,6 +237,7 @@ def mixer(song, args):
             "parents": _parent_names(track),
             "isGroup": bool(_safe(lambda: track.is_foldable, False)),
             "muted": bool(track.mute),
+            "soloed": bool(_safe(lambda: track.solo, False)),
             "mutedViaSolo": bool(_safe(lambda: track.muted_via_solo, False)),
         })
     return {"tracks": result}
@@ -244,7 +245,8 @@ def mixer(song, args):
 
 def mixer_signature(song):
     """Cheap fingerprint of track names and mute states, to notice changes in Live."""
-    return tuple((t.name, bool(t.mute), bool(_safe(lambda: t.muted_via_solo, False)))
+    return tuple((t.name, bool(t.mute), bool(_safe(lambda: t.solo, False)),
+                  bool(_safe(lambda: t.muted_via_solo, False)))
                  for t in song.tracks)
 
 
@@ -254,6 +256,24 @@ def mute(song, args):
         raise RequestError("missing argument 'muted'")
     track.mute = bool(args["muted"])
     return {"muted": bool(track.mute)}
+
+
+def solo(song, args):
+    """Solo or unsolo one track. Other solos are left as they are."""
+    track = _track_checked(song, args)
+    if "soloed" not in args:
+        raise RequestError("missing argument 'soloed'")
+    track.solo = bool(args["soloed"])
+    return {"soloed": bool(track.solo)}
+
+
+def clear_solos(song, args):
+    cleared = 0
+    for track in song.tracks:
+        if _safe(lambda: track.solo, False):
+            track.solo = False
+            cleared += 1
+    return {"cleared": cleared}
 
 
 def _track_checked(song, op):
@@ -331,4 +351,6 @@ HANDLERS = {
     "apply": apply,
     "mixer": mixer,
     "mute": mute,
+    "solo": solo,
+    "clear_solos": clear_solos,
 }

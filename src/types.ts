@@ -97,5 +97,6 @@ export interface MixerTrack {
   parents: string[]; // enclosing group names, innermost first
   isGroup: boolean;
   muted: boolean;
+  soloed?: boolean; // missing with a Remote Script older than 1.2.0
   mutedViaSolo: boolean; // silent because another track is soloed
 }

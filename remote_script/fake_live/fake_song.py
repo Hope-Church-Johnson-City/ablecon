@@ -65,9 +65,27 @@ class Track(object):
         self.is_foldable = foldable
         self.group_track = group
         self.mute = False
-        self.muted_via_solo = False
+        self.solo = False
+        self.song = None  # set by Song, so muted_via_solo can look at the other tracks
         self._clips = clips or []
         self.devices = devices or []
+
+    def _ancestors(self):
+        group = self.group_track
+        while group is not None:
+            yield group
+            group = group.group_track
+
+    @property
+    def muted_via_solo(self):
+        """Silent because some other track is soloed (as Live works it out)."""
+        if self.song is None or self.solo or any(g.solo for g in self._ancestors()):
+            return False
+        soloed = [t for t in self.song.tracks if t.solo]
+        if not soloed:
+            return False
+        # A group stays audible when something inside it is soloed.
+        return not any(self in t._ancestors() for t in soloed)
 
     @property
     def arrangement_clips(self):
@@ -80,6 +98,8 @@ class Song(object):
     def __init__(self, cue_points=None, tracks=None, tempo=120.0, song_length=0.0):
         self.cue_points = cue_points or []
         self.tracks = tracks or []
+        for track in self.tracks:
+            track.song = self
         self.tempo = float(tempo)
         self.is_playing = False
         self.current_song_time = 0.0

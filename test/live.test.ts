@@ -375,6 +375,39 @@ test('controller lists tracks and mutes and unmutes them', async () => {
   }
 });
 
+test('solo and clear solos; other tracks show as silenced', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.tracks.length === 3);
+    await controller.setSolo(1, 'Keys', true);
+    assert.ok(fake.soloed.has(1));
+    assert.deepEqual(controller.tracks.map((t) => [t.name, t.soloed, t.mutedViaSolo]), [
+      ['Click [nokey]', false, true], ['Keys', true, false], ['Synth', false, true],
+    ]);
+    await controller.setSolo(2, 'Synth', true);
+    await controller.clearSolos();
+    assert.equal(fake.soloed.size, 0);
+    assert.ok(controller.tracks.every((t) => !t.soloed && !t.mutedViaSolo));
+    await assert.rejects(controller.setSolo(1, 'Pad', true), /moved or been renamed/);
+  } finally {
+    done();
+  }
+});
+
+test('solo with an old Remote Script says to update it', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.oldScript = true;
+    await client.start();
+    await until(() => controller.tracks.length === 3);
+    await assert.rejects(controller.setSolo(1, 'Keys', true), /newer Remote Script/);
+    await assert.rejects(controller.clearSolos(), /newer Remote Script/);
+  } finally {
+    done();
+  }
+});
+
 test('mutes made in Live show up after a change notice', async () => {
   const { fake, controller, client, done } = await setup();
   try {

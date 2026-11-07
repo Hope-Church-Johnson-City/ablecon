@@ -255,16 +255,34 @@ function currentGroupName() {
   return group ? group.name : null;
 }
 
+// What tapping a track does. Always starts as "mute" so nobody is left in
+// solo mode by accident after a reload.
+let trackMode = 'mute';
+
 function muteChip(t, extraClass = '', label = t.name) {
   const cls = ['chip', extraClass];
   if (t.muted) cls.push('muted');
-  else if (t.mutedViaSolo) cls.push('solo-silent');
+  else if (t.mutedViaSolo && !t.soloed) cls.push('solo-silent');
+  if (t.soloed) cls.push('soloed');
+  const states = [];
+  if (t.soloed) states.push(el('span', { class: 'cstate solo' }, 'Solo'));
+  if (t.muted) states.push(el('span', { class: 'cstate' }, 'Muted'));
+  const soloMode = trackMode === 'solo';
+  const title = soloMode
+    ? (t.soloed ? `Unsolo ${t.name}` : `Solo ${t.name}`)
+    : t.muted ? `Unmute ${t.name}` : t.mutedViaSolo ? `${t.name} is silent because another track is soloed. Tap to mute it.` : `Mute ${t.name}`;
   return el('button', {
     class: cls.join(' ').trim(),
-    'aria-pressed': String(t.muted),
-    title: t.muted ? `Unmute ${t.name}` : t.mutedViaSolo ? `${t.name} is silent because another track is soloed. Tap to mute it.` : `Mute ${t.name}`,
-    onclick: () => send('mute', { track: t.index, name: t.name, muted: !t.muted }),
-  }, el('span', { class: 'cname' }, label), t.muted ? el('span', { class: 'cstate' }, 'Muted') : null);
+    'aria-pressed': String(soloMode ? !!t.soloed : t.muted),
+    title,
+    onclick: () => soloMode
+      ? send('solo', { track: t.index, name: t.name, soloed: !t.soloed })
+      : send('mute', { track: t.index, name: t.name, muted: !t.muted }),
+  }, el('span', { class: 'cname' }, label), states.length ? el('span', { class: 'cstates' }, states) : null);
+}
+
+function countSoloed(node) {
+  return node.children.reduce((n, c) => n + (c.track.soloed ? 1 : 0) + countSoloed(c), 0);
 }
 
 function countMuted(node) {
@@ -281,6 +299,12 @@ function renderTracks() {
   $('.mixer').classList.toggle('collapsed', !tracksOpen);
   const current = currentGroupName();
   tracksRenderedFor = current;
+  const anySolo = tracks.some((t) => t.soloed);
+  $('#clearSolosBtn').classList.toggle('hidden', !anySolo);
+  $('.mixer').classList.toggle('solo-mode', trackMode === 'solo');
+  $('#tracksHint').textContent = trackMode === 'solo'
+    ? 'Solo mode: tap a track to solo or unsolo it. Switch back to “Tap mutes” when you’re done.'
+    : 'Tap a track to mute or unmute it. Tap a group’s name to open or close it.';
   box.replaceChildren();
   if (tracks.length === 0) {
     box.append(el('p', { class: 'hint' }, state.connected ? 'This Live set has no tracks.' : 'Waiting for Live…'));
@@ -300,8 +324,10 @@ function renderTracks() {
     const isCurrent = t.name === current;
     const open = groupChoice[t.name] ?? isCurrent;
     const mutedInside = countMuted(node);
+    const soloedInside = countSoloed(node);
     const summary = [`${node.children.length} track${node.children.length === 1 ? '' : 's'}`];
     if (mutedInside) summary.push(`${mutedInside} muted`);
+    if (soloedInside) summary.push(`${soloedInside} soloed`);
     const block = el('div', { class: `tgroup${isCurrent ? ' current' : ''}${t.muted ? ' muted' : ''}` },
       el('div', { class: 'tgroup-head' },
         el('button', {
@@ -422,6 +448,17 @@ $('#nextBtn').onclick = () => {
   if (next) send('cue', { songId: next.songId });
 };
 $('#loopOffBtn').onclick = () => send('loopOff');
+document.querySelectorAll('#trackMode button').forEach((b) => {
+  b.onclick = () => {
+    trackMode = b.dataset.tmode;
+    document.querySelectorAll('#trackMode button').forEach((o) => {
+      o.classList.toggle('on', o === b);
+      o.setAttribute('aria-checked', String(o === b));
+    });
+    renderTracks();
+  };
+});
+$('#clearSolosBtn').onclick = () => send('clearSolos');
 $('#tracksBtn').onclick = () => {
   tracksOpen = !tracksOpen;
   try { localStorage.setItem('ablcon.tracksOpen', tracksOpen ? 'yes' : 'no'); } catch { /* storage blocked */ }
@@ -432,10 +469,10 @@ $('#editBtn').onclick = () => {
   $('#editBtn').textContent = editing ? 'Done' : 'Edit';
   renderSetlist();
 };
-document.querySelectorAll('.seg button').forEach((b) => {
+document.querySelectorAll('.sections-head .seg button').forEach((b) => {
   b.onclick = () => {
     tapMode = b.dataset.mode;
-    document.querySelectorAll('.seg button').forEach((o) => o.classList.toggle('on', o === b));
+    document.querySelectorAll('.sections-head .seg button').forEach((o) => o.classList.toggle('on', o === b));
   };
 });
 $('#settingsBtn').onclick = async () => {

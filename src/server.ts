@@ -67,6 +67,8 @@ async function dispatch(c: Controller, cmd: Command): Promise<void> {
     case 'settings': return c.updateSettings((cmd.settings as object) ?? {});
     case 'refresh': return c.refresh();
     case 'mute': return c.setMute(n(cmd.track), String(cmd.name ?? ''), Boolean(cmd.muted));
+    case 'solo': return c.setSolo(n(cmd.track), String(cmd.name ?? ''), Boolean(cmd.soloed));
+    case 'clearSolos': return c.clearSolos();
     default: throw new Error(`unknown action "${cmd.action}"`);
   }
 }

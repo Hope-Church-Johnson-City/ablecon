@@ -150,7 +150,7 @@ class DispatcherTests(unittest.TestCase):
         tracks = request(self.d, "mixer")["result"]["tracks"]
         self.assertEqual(len(tracks), 6)
         self.assertEqual(tracks[3], {"index": 3, "name": "Keys", "parents": ["Stems"], "isGroup": False,
-                                     "muted": False, "mutedViaSolo": False})
+                                     "muted": False, "soloed": False, "mutedViaSolo": False})
         before = handlers.mixer_signature(self.song)
         res = request(self.d, "mute", {"track": 3, "trackName": "Keys", "muted": True})
         self.assertEqual(res["result"], {"muted": True})
@@ -177,6 +177,20 @@ class DispatcherTests(unittest.TestCase):
         sections = tracks[0]
         self.assertEqual(sections["name"], "Sections")
         self.assertEqual([c["name"] for c in sections["clips"]][:3], ["Count Off", "Intro", "Verse 1"])
+
+    def test_solo_and_clear(self):
+        before = handlers.mixer_signature(self.song)
+        res = request(self.d, "solo", {"track": 3, "trackName": "Keys", "soloed": True})
+        self.assertEqual(res["result"], {"soloed": True})
+        self.assertNotEqual(handlers.mixer_signature(self.song), before)
+        tracks = {t["name"]: t for t in request(self.d, "mixer")["result"]["tracks"]}
+        self.assertTrue(tracks["Keys"]["soloed"])
+        self.assertTrue(tracks["Pad"]["mutedViaSolo"])
+        self.assertFalse(tracks["Stems"]["mutedViaSolo"], "the group holding the soloed track stays audible")
+        request(self.d, "solo", {"track": 5, "trackName": "Synth", "soloed": True})
+        self.assertEqual(request(self.d, "clear_solos")["result"], {"cleared": 2})
+        self.assertFalse(any(t.solo for t in self.song.tracks))
+        self.assertIn("renamed", request(self.d, "solo", {"track": 3, "trackName": "Pad", "soloed": True})["error"])
 
     def test_large_reply_is_chunked(self):
         cues = [CuePoint("Section %d with a fairly long name" % i, i) for i in range(600)]

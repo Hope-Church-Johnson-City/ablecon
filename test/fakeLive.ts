@@ -20,6 +20,7 @@ export class FakeLive {
   calls: Array<{ method: string; args: Record<string, unknown> }> = [];
   chunkSize = 6000;
   muted = new Set<number>(); // track indexes muted in the fake mixer
+  soloed = new Set<number>();
   // Like Live: "play" starts at the start marker and "continue" where playback last
   // stopped. Moving the playhead while stopped changes neither, unless the script
   // can move the start marker (Song.start_time), which Ablcon's script does on jump.
@@ -133,7 +134,26 @@ export class FakeLive {
       case 'apply':
         return { results: (args.ops as KeyOp[]).map((op) => this.apply(op)) };
       case 'mixer':
-        return { tracks: s.tracks.map((t) => ({ index: t.index, name: t.name, parents: t.parents, isGroup: t.isGroup, muted: this.muted.has(t.index), mutedViaSolo: false })) };
+        return { tracks: s.tracks.map((t) => ({
+          index: t.index, name: t.name, parents: t.parents, isGroup: t.isGroup,
+          muted: this.muted.has(t.index),
+          ...(this.oldScript ? {} : { soloed: this.soloed.has(t.index) }),
+          mutedViaSolo: this.soloed.size > 0 && !this.soloed.has(t.index),
+        })) };
+      case 'solo': {
+        if (this.oldScript) throw new Error("unknown method 'solo'");
+        const t = s.tracks[Number(args.track)];
+        if (!t || t.name !== args.trackName) throw new Error('track was renamed or moved');
+        if (args.soloed) this.soloed.add(t.index);
+        else this.soloed.delete(t.index);
+        return { soloed: Boolean(args.soloed) };
+      }
+      case 'clear_solos': {
+        if (this.oldScript) throw new Error("unknown method 'clear_solos'");
+        const cleared = this.soloed.size;
+        this.soloed.clear();
+        return { cleared };
+      }
       case 'mute': {
         const t = s.tracks[Number(args.track)];
         if (!t || t.name !== args.trackName) throw new Error('track was renamed or moved');

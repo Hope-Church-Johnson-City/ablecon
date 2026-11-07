@@ -159,6 +159,12 @@ A song with no section locators still gets its sections from the Sections track,
   - The group for the song that's playing (or ready) opens by itself and is marked **This song**. Ablcon
     matches group names to song titles and forgives small spelling slips ("Kign Of Kings").
     Groups you open or close by hand stay that way on that device.
+  - **Tap mutes / Tap solos** chooses what tapping a track (or **Whole group**) does. Soloed tracks are
+    outlined in yellow with a **Solo** label, and tracks silenced by someone else's solo fade out.
+    Solos add up (soloing a second track keeps the first one soloed); **Clear solos** appears whenever
+    anything is soloed and unsolos everything. While **Tap solos** is on, the panel is outlined in yellow
+    so you notice; reloading the page always goes back to **Tap mutes**. Solo needs Remote Script 1.2.0
+    or newer (**File → Install Remote Script in Ableton Live…**, then restart Live).
   - Tap a track to mute or unmute it; muted tracks turn red. Mutes take effect immediately, even mid-song,
     and changes you make in Live show up on every device within a fraction of a second. A faded track is
     silent only because another track is soloed. **Hide** folds the whole panel away on that device.
@@ -326,7 +332,7 @@ OSC messages over UDP on 127.0.0.1. The script listens on port 11100 and replies
 
 Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `tempo {bpm}`,
 `loop {start, length, enabled}`, `tracks {start, end}`, `apply {ops}`, `mixer`,
-`mute {track, trackName, muted}`. Replies are split into chunks of
+`mute {track, trackName, muted}`, `solo {track, trackName, soloed}`, `clear_solos`, `play_from {beats}`. Replies are split into chunks of
 6000 ASCII characters to stay under macOS's 9216-byte UDP datagram limit.
 
 ### Tests
@@ -369,7 +375,7 @@ Still to check in Live 11 and 12:
 - Changing clip transpose and device parameters, and section loops (tempo and playhead changes work).
 - Setting `Clip.pitch_coarse`, and that the Pitch MIDI effect reports `class_name` `"MidiPitcher"` with a
   parameter named `"Pitch"`. (Reading locators, arrangement clips, `warping` and groups works.)
-- Muting from Ablcon, `Track.muted_via_solo`, and that checking every track's mute state ten times a
+- Muting and soloing from Ablcon, `Track.muted_via_solo`, and that checking every track's mute state ten times a
   second costs nothing noticeable in a large set.
 - How far past a song's end Live plays before Ablcon stops it, and whether that is audible.
 - Running time for songs in time signatures other than x/4 (Ablcon assumes Live's beat counts match its BPM).

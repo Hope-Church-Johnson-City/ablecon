@@ -179,6 +179,34 @@ export class Controller extends EventEmitter<ControllerEvents> {
     this.emit('state');
   }
 
+  /** Solo or unsolo one track. Like mutes, this skips the command queue. */
+  async setSolo(index: number, name: string, soloed: boolean): Promise<void> {
+    const track = this.tracks.find((t) => t.index === index);
+    if (!track || track.name !== name) {
+      void this.refreshTracks().catch(() => {});
+      throw new Error(`Track "${name}" has moved or been renamed in Live; try again.`);
+    }
+    await this.mixerCall('solo', { track: index, trackName: name, soloed });
+    // Soloing changes which other tracks are silent, so read them all back.
+    await this.refreshTracks();
+  }
+
+  async clearSolos(): Promise<void> {
+    await this.mixerCall('clear_solos', {});
+    await this.refreshTracks();
+  }
+
+  private async mixerCall(method: string, args: Record<string, unknown>): Promise<void> {
+    try {
+      await this.live.call(method, args);
+    } catch (err) {
+      if (/unknown method/.test((err as Error).message)) {
+        throw new Error('Solo needs the newer Remote Script: choose File → Install Remote Script in Ableton Live…, then restart Live.');
+      }
+      throw err;
+    }
+  }
+
   private onPosition(pos: Position): void {
     const prev = this.position;
     this.position = pos;
