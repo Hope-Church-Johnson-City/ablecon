@@ -151,11 +151,17 @@ A song with no section locators still gets its sections from the Sections track,
   With **Tap loops**, it turns on Live's loop around that section (tap again, or **Loop off**, to stop
   looping). The looping section is highlighted blue.
 - **Edit** shows the reorder arrows (↑ ↓), the tempo box and the key buttons for each song.
-- **Tracks** lists every track in the set, with tracks inside a group indented under it. Tap a track to
-  mute or unmute it; muted tracks are struck through with a red **Muted** label. Muting a group silences
-  everything in it, just as in Live. Mutes take effect immediately, even mid-song, and changes you make in
-  Live show up on every device within a fraction of a second. A track that is silent only because
-  another track is soloed says so. **Hide** folds the list away on that device.
+- **Tracks** has a mute button for every track, laid out compactly:
+  - Tracks outside any group (click, guide…) are at the top. The Sections track is left out, since muting
+    it does nothing useful.
+  - Each group folds up to one row: tap its name to open or close it. The row says how many tracks are in
+    it and how many of those are muted, and **Whole group** mutes or unmutes the group itself.
+  - The group for the song that's playing (or ready) opens by itself and is marked **This song**. Ablcon
+    matches group names to song titles and forgives small spelling slips ("Kign Of Kings").
+    Groups you open or close by hand stay that way on that device.
+  - Tap a track to mute or unmute it; muted tracks turn red. Mutes take effect immediately, even mid-song,
+    and changes you make in Live show up on every device within a fraction of a second. A faded track is
+    silent only because another track is soloed. **Hide** folds the whole panel away on that device.
 - **Set** in the top bar is the total running time of every song in the setlist. A song with its own
   tempo in the setlist is timed at that tempo. Otherwise Ablcon uses the tempo Live reported when the
   playhead was last near the song's start, which picks up tempo automation. Songs the playhead hasn't

@@ -202,6 +202,76 @@ function renderWarnings() {
   box.replaceChildren(el('strong', {}, 'Locator notes'), el('ul', {}, list.map((w) => el('li', {}, w))));
 }
 
+// ---- tracks (mute panel) --------------------------------------------------------
+
+// Groups the user opened or closed by hand on this device, by group name.
+let groupChoice = {};
+try { groupChoice = JSON.parse(localStorage.getItem('ablcon.groups') || '{}') || {}; } catch { /* storage blocked */ }
+function rememberGroup(name, open) {
+  groupChoice[name] = open;
+  try { localStorage.setItem('ablcon.groups', JSON.stringify(groupChoice)); } catch { /* storage blocked */ }
+}
+
+/** Turn Live's flat track list into a tree, using each track's group depth. */
+function trackTree(tracks) {
+  const root = { track: null, children: [] };
+  const stack = [root]; // stack[d] = the group that holds tracks at depth d
+  for (const t of tracks) {
+    const depth = Math.min(t.parents.length, stack.length - 1);
+    stack.length = depth + 1;
+    const node = { track: t, children: [] };
+    stack[depth].children.push(node);
+    if (t.isGroup) stack.push(node);
+  }
+  return root;
+}
+
+const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/** Edit distance with swaps, so "Kign Of Kings" still matches "King Of Kings". */
+function closeEnough(a, b) {
+  a = norm(a); b = norm(b);
+  if (!a || !b) return false;
+  if (a === b || a.includes(b) || b.includes(a)) return true;
+  if (Math.min(a.length, b.length) < 6) return false;
+  const d = [];
+  for (let i = 0; i <= a.length; i++) { d[i] = [i]; }
+  for (let j = 0; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length] <= 2;
+}
+
+/** Name of the group that holds the current (or cued) song's stems, if one matches its title. */
+function currentGroupName() {
+  const row = rowAt(position.beats) || focusRow();
+  if (!row || !state) return null;
+  const group = (state.tracks || []).find((t) => t.isGroup && closeEnough(t.name, row.name));
+  return group ? group.name : null;
+}
+
+function muteChip(t, extraClass = '', label = t.name) {
+  const cls = ['chip', extraClass];
+  if (t.muted) cls.push('muted');
+  else if (t.mutedViaSolo) cls.push('solo-silent');
+  return el('button', {
+    class: cls.join(' ').trim(),
+    'aria-pressed': String(t.muted),
+    title: t.muted ? `Unmute ${t.name}` : t.mutedViaSolo ? `${t.name} is silent because another track is soloed. Tap to mute it.` : `Mute ${t.name}`,
+    onclick: () => send('mute', { track: t.index, name: t.name, muted: !t.muted }),
+  }, el('span', { class: 'cname' }, label), t.muted ? el('span', { class: 'cstate' }, 'Muted') : null);
+}
+
+function countMuted(node) {
+  return node.children.reduce((n, c) => n + (c.track.muted ? 1 : 0) + countMuted(c), 0);
+}
+
+let tracksRenderedFor = undefined;
 function renderTracks() {
   const box = $('#tracks');
   const tracks = state.tracks || [];
@@ -209,29 +279,52 @@ function renderTracks() {
   $('#tracksBtn').setAttribute('aria-expanded', String(tracksOpen));
   box.classList.toggle('collapsed', !tracksOpen);
   $('.mixer').classList.toggle('collapsed', !tracksOpen);
+  const current = currentGroupName();
+  tracksRenderedFor = current;
   box.replaceChildren();
   if (tracks.length === 0) {
     box.append(el('p', { class: 'hint' }, state.connected ? 'This Live set has no tracks.' : 'Waiting for Live…'));
     return;
   }
-  for (const t of tracks) {
-    const cls = ['track'];
-    if (t.isGroup) cls.push('group');
-    if (t.muted) cls.push('muted');
-    const btn = el('button', {
-      class: cls.join(' '),
-      'aria-pressed': String(t.muted),
-      title: t.muted ? `Unmute ${t.name}` : `Mute ${t.name}`,
-      onclick: () => send('mute', { track: t.index, name: t.name, muted: !t.muted }),
-    },
-      el('span', { class: 'tname' }, t.name),
-      !t.muted && t.mutedViaSolo ? el('span', { class: 'why' }, 'silent: another track is soloed') : null,
-      el('span', { class: 'state' }, t.muted ? 'Muted' : 'On'),
+  const sectionsName = norm(state.settings.sectionsTrack || '');
+  const visible = (node) => !(sectionsName && !node.track.isGroup && norm(node.track.name) === sectionsName);
+
+  const renderLevel = (nodes, container) => {
+    const loose = nodes.filter((n) => !n.track.isGroup && visible(n));
+    if (loose.length) container.append(el('div', { class: 'chips' }, loose.map((n) => muteChip(n.track))));
+    for (const g of nodes.filter((n) => n.track.isGroup)) container.append(groupBlock(g));
+  };
+
+  const groupBlock = (node) => {
+    const t = node.track;
+    const isCurrent = t.name === current;
+    const open = groupChoice[t.name] ?? isCurrent;
+    const mutedInside = countMuted(node);
+    const summary = [`${node.children.length} track${node.children.length === 1 ? '' : 's'}`];
+    if (mutedInside) summary.push(`${mutedInside} muted`);
+    const block = el('div', { class: `tgroup${isCurrent ? ' current' : ''}${t.muted ? ' muted' : ''}` },
+      el('div', { class: 'tgroup-head' },
+        el('button', {
+          class: 'expander', 'aria-expanded': String(open),
+          onclick: () => { rememberGroup(t.name, !open); renderTracks(); },
+        },
+          el('span', { class: 'caret' }, open ? '▾' : '▸'),
+          el('span', { class: 'gname' }, t.name),
+          isCurrent ? el('span', { class: 'now' }, 'This song') : null,
+          el('span', { class: 'gsum' }, summary.join(' · ')),
+        ),
+        muteChip(t, 'group-mute', 'Whole group'),
+      ),
     );
-    btn.style.marginLeft = `${t.parents.length * 18}px`;
-    btn.style.width = `calc(100% - ${t.parents.length * 18}px)`;
-    box.append(btn);
-  }
+    if (open) {
+      const body = el('div', { class: 'tgroup-body' });
+      renderLevel(node.children, body);
+      block.append(body);
+    }
+    return block;
+  };
+
+  renderLevel(trackTree(tracks).children, box);
 }
 
 let sectionsFor = null;
@@ -258,6 +351,7 @@ function renderPosition() {
   const here = rowAt(position.beats);
   const focus = focusRow();
   if ((focus ? focus.songId : null) !== sectionsFor) renderSections();
+  if (currentGroupName() !== tracksRenderedFor) renderTracks();
 
   const playBtn = $('#playBtn');
   playBtn.classList.toggle('active', position.playing);

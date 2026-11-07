@@ -201,9 +201,13 @@ def plain_song():
         Track("Click Foundations", clips=[Clip("click", 0, 395)]),
         Track("Guide", clips=[Clip("guide", 0, 395)]),
     ]
-    for title, start, end in (("Morning Light", 0, 135), ("River Wide", 140, 263), ("Still Waters", 263, 395)):
-        group = Track(title, foldable=True)
+    # Group names don't always match the song exactly ("Rivr Wide"), as in real sets.
+    for title, group_name, start, end in (("Morning Light", "Morning Light", 0, 135),
+                                          ("River Wide", "Rivr Wide", 140, 263),
+                                          ("Still Waters", "Still Waters", 263, 395)):
+        group = Track(group_name, foldable=True)
         tracks.append(group)
-        for stem in ("Drums", "Bass", "AG", "Keys", "Pad"):
+        for stem in ("Drums", "Perc", "Loop", "Bass", "Synth Bass", "AG", "EG 1", "EG 2", "EG 3",
+                     "Piano", "Keys 1", "Keys 2", "Synth Pad", "Organ", "Strings", "BGVS", "Choir"):
             tracks.append(Track(stem, group=group, clips=[Clip("%s %s" % (title, stem), start, end)]))
     return Song(cues, tracks, tempo=72.0, song_length=395.0)

@@ -113,13 +113,24 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .toast.error { border-left-color: var(--halt); }
 
 .mixer .hint { margin-bottom: 10px; }
-.tracks { display: flex; flex-direction: column; gap: 6px; }
+.tracks { display: flex; flex-direction: column; gap: 8px; }
 .tracks.collapsed, .mixer.collapsed .hint { display: none; }
-.track { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; }
-.track .tname { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
-.track.group .tname::before { content: "▾ "; color: var(--muted); }
-.track .state { font-size: 12px; border-radius: 6px; padding: 2px 8px; border: 1px solid var(--go); color: var(--go); }
-.track.muted { background: var(--bg); }
-.track.muted .tname { color: var(--muted); text-decoration: line-through; }
-.track.muted .state { border-color: var(--halt); color: #fff; background: var(--halt); }
-.track .why { font-size: 12px; color: var(--muted); }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+.chip { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-height: 44px; padding: 6px 10px; text-align: left; font-size: 14px; border-left: 3px solid var(--go); }
+.chip .cname { font-weight: 600; overflow-wrap: anywhere; line-height: 1.2; }
+.chip .cstate { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.chip.muted { background: #3a1d1f; border-color: var(--halt); border-left-color: var(--halt); }
+.chip.muted .cname { color: var(--muted); text-decoration: line-through; }
+.chip.muted .cstate { color: var(--halt); }
+.chip.solo-silent { border-left-color: var(--muted); opacity: 0.7; }
+.tgroup { border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.tgroup.current { border-color: var(--accent); }
+.tgroup-head { display: flex; align-items: stretch; gap: 6px; padding: 6px; }
+.expander { flex: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; text-align: left; background: transparent; border: 0; padding: 6px 4px; }
+.expander .caret { color: var(--muted); width: 12px; }
+.expander .gname { font-weight: 700; overflow-wrap: anywhere; }
+.expander .now { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+.expander .gsum { flex-basis: 100%; padding-left: 20px; font-size: 12px; color: var(--muted); }
+.group-mute { min-width: 96px; flex: 0 0 auto; }
+.tgroup-body { padding: 0 8px 8px; display: flex; flex-direction: column; gap: 8px; }
+.tgroup-body .tgroup { background: var(--panel); }
