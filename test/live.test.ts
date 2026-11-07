@@ -676,3 +676,17 @@ test('end to end with the Python Remote Script handlers', async (t) => {
     py.kill();
   }
 });
+
+test('the tempo of the song under the playhead is learned when the set is read', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.set.beats = 41; // parked at the start of Second, never moves
+    fake.set.tempo = 64;
+    await client.start();
+    await until(() => controller.file.entries.find((e) => e.songId === 'second')?.seenTempo === 64);
+    const row = controller.snapshot().rows.find((r) => r.songId === 'second');
+    assert.equal(row?.seenTempo, 64);
+  } finally {
+    done();
+  }
+});

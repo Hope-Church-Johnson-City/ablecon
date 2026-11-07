@@ -167,6 +167,10 @@ A song with no section locators still gets its sections from the Sections track,
   time signature, so time-signature changes inside the set can throw the count off. The timing runs
   inside Live (Remote Script 1.4.1 or newer): the jump happens on Live's last update before the bar
   line, into the matching point just before the new section, so its downbeat lands on time.
+- Each song in the setlist shows its **key** and then its **tempo**. A tempo you set in Ablecon is
+  highlighted; a grey one is the tempo Live plays the song at (from your Song Tempo automation), which
+  Ablecon learns the first time the playhead is at that song. "– BPM" means it hasn't been there yet:
+  tap or play the song once.
 - **Edit** shows the reorder arrows (↑ ↓), the tempo box and the key buttons for each song.
 - **Tracks** gives every track an **M** (mute) and **S** (solo) button, laid out compactly:
   - Tracks outside any group (click, guide…) are at the top. The Sections track is left out, since muting

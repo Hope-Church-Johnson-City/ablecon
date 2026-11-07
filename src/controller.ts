@@ -165,6 +165,9 @@ export class Controller extends EventEmitter<ControllerEvents> {
         await this.save(store.pruneMissing(store.withSongSettings(file, this.store), this.songs));
         if (this.cuedId && !this.songs.some((s) => s.id === this.cuedId)) this.cuedId = null;
       }
+      // Learn the tempo of the song the playhead is already in (it may not move for a while).
+      const here = songAt(this.songs, this.position.beats);
+      if (here) this.noteTempo(here, this.position);
       await this.refreshTracks();
       this.emit('state');
     });

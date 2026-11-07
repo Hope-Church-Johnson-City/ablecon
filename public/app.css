@@ -110,6 +110,9 @@ main { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); ga
 .tag { border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
 .tag.warn { border-color: var(--accent); color: var(--accent); }
 .tag.pending { border-color: var(--loop); color: var(--loop); }
+.tag.tempo { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tag.tempo.set { border-color: var(--accent); color: var(--accent); }
+.tag.tempo.unknown { opacity: 0.6; }
 .song .dur { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
 .song .go-btn { padding: 6px 10px; }
 .song .edit { display: none; padding: 0 12px 12px; gap: 10px; flex-wrap: wrap; align-items: center; }

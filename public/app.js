@@ -36,6 +36,16 @@ function clock(seconds) {
 const keyText = (n) => (n > 0 ? `+${n}` : String(n));
 const bpmText = (n) => `${Math.round(n * 100) / 100} BPM`;
 
+/**
+ * The song's tempo: one set in Ablecon (highlighted), the tempo Live plays it
+ * at (learned the first time the playhead is at the song), or unknown yet.
+ */
+function tempoTag(row) {
+  if (row.tempo !== null) return el('span', { class: 'tag tempo set', title: 'Tempo set in Ablecon' }, bpmText(row.tempo));
+  if (row.seenTempo != null) return el('span', { class: 'tag tempo', title: 'Tempo from the Live set' }, bpmText(row.seenTempo));
+  return el('span', { class: 'tag tempo unknown', title: 'Tap or play this song once and Ablecon will read its tempo from Live' }, '– BPM');
+}
+
 /** "G", "G → A", or "Key +2" when the song name has no key. */
 function keyLabel(row) {
   const moved = row.semitones !== null && row.semitones !== 0;
@@ -143,9 +153,9 @@ function renderSetlist() {
 
 function songItem(row, i) {
   const tags = [];
-  if (row.tempo !== null) tags.push(el('span', { class: 'tag' }, bpmText(row.tempo)));
   const keyTag = keyLabel(row);
   if (keyTag) tags.push(el('span', { class: 'tag', title: row.semitones ? `${keyText(row.semitones)} semitones` : 'Original key' }, keyTag));
+  if (!row.missing) tags.push(tempoTag(row));
   if (row.key && row.key.pending) tags.push(el('span', { class: 'tag pending', title: 'Finishes when Live stops' }, 'Key waiting'));
   if (row.key && (row.key.warnings.length || row.key.error)) tags.push(el('span', { class: 'tag warn' }, '⚠'));
   if (row.missing) tags.push(el('span', { class: 'tag warn' }, 'Not in Live set'));
