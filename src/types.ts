@@ -13,7 +13,8 @@ export interface Section {
 
 export interface Song {
   id: string; // stable key used by the setlist file
-  name: string;
+  name: string; // title, without a "(G)" key suffix
+  key: { pitch: number; minor: boolean } | null; // original key written in the locator name
   start: number; // beats
   end: number; // beats
   sections: Section[];
@@ -30,7 +31,8 @@ export type EndOfSong = 'stop' | 'next' | 'continue';
 
 export interface SetlistSettings {
   endOfSong: EndOfSong;
-  noKeyTag: string;
+  noKeyTag: string; // comma-separated words; tracks whose names contain one are never transposed
+  sectionsTrack: string; // name of the track whose clips mark sections
 }
 
 export interface SetlistFile {

@@ -75,10 +75,14 @@
           <option value="continue">Keep playing the arrangement</option>
         </select>
       </label>
-      <label>Tracks never transposed contain
+      <label>Never transpose tracks whose names contain
         <input id="noKeyTag" type="text" autocomplete="off" spellcheck="false">
       </label>
-      <p class="hint">Put this tag in a track or group name (for example click, guide and cue tracks).</p>
+      <p class="hint">Separate words with commas. A word in a group's name covers every track in the group.</p>
+      <label>Track whose clips mark the sections
+        <input id="sectionsTrack" type="text" autocomplete="off" spellcheck="false" placeholder="none">
+      </label>
+      <p class="hint">Each clip on this track becomes a section button, named after the clip. Used for songs without section locators.</p>
       <div class="row-btns">
         <button type="button" id="rescanBtn" class="ghost">Re-read locators</button>
         <button value="close">Done</button>

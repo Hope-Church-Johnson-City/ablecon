@@ -271,7 +271,7 @@ async function freeUdpPort(): Promise<number> {
 
 test('end to end with the Python Remote Script handlers', async (t) => {
   const port = await freeUdpPort();
-  const py = spawn('python3', [path.join(root, 'remote_script/fake_live/fake_live_server.py'), '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
+  const py = spawn('python3', [path.join(root, 'remote_script/fake_live/fake_live_server.py'), '--port', String(port), '--set', 'marked'], { stdio: ['ignore', 'pipe', 'inherit'] });
   const started = await Promise.race([
     once(py.stdout, 'data').then(() => true),
     once(py, 'error').then(() => false),

@@ -22,19 +22,24 @@ export interface KeyPlan {
   warnings: string[];
 }
 
-export function isTagged(track: Pick<TrackInfo, 'name' | 'parents'>, tag: string): boolean {
-  const t = tag.toLowerCase();
-  return [track.name, ...track.parents].some((n) => n.toLowerCase().includes(t));
+/** True when the track or one of its groups has any of the comma-separated words in its name. */
+export function isTagged(track: Pick<TrackInfo, 'name' | 'parents'>, tags: string): boolean {
+  const words = tags.split(',').map((w) => w.trim().toLowerCase()).filter(Boolean);
+  return [track.name, ...track.parents].some((n) => words.some((w) => n.toLowerCase().includes(w)));
 }
 
 /**
  * Work out every change needed to put `song` in `semitones`.
  * A clip belongs to a song when it starts inside the song's range.
  */
-export function planKey(song: Pick<Song, 'start' | 'end'>, semitones: number, tracks: TrackInfo[], noKeyTag: string): KeyPlan {
+export function planKey(song: Pick<Song, 'start' | 'end'>, semitones: number, tracks: TrackInfo[], noKeyTag: string, sectionsTrack = ''): KeyPlan {
   const plan: KeyPlan = { semitones, clipOps: [], deviceOps: [], clipsInKey: 0, devicesInKey: 0, warnings: [] };
+  const sectionsName = sectionsTrack.trim().toLowerCase();
+  const startsBefore: string[] = []; // track names, summarised into one warning each
+  const runsPast: string[] = [];
   for (const track of tracks) {
     if (track.isGroup || isTagged(track, noKeyTag)) continue;
+    if (sectionsName && track.name.trim().toLowerCase() === sectionsName) continue; // marker clips, not music
     let midiClips = 0;
     for (const clip of track.clips) {
       const startsInside = clip.start >= song.start && clip.start < song.end;
@@ -44,7 +49,7 @@ export function planKey(song: Pick<Song, 'start' | 'end'>, semitones: number, tr
       }
       if (!startsInside) {
         if (clip.start < song.start && clip.end > song.start) {
-          plan.warnings.push(`"${clip.name}" on ${track.name} starts before this song, so it was left alone.`);
+          startsBefore.push(track.name);
         }
         continue;
       }
@@ -53,7 +58,7 @@ export function planKey(song: Pick<Song, 'start' | 'end'>, semitones: number, tr
         continue;
       }
       if (clip.end > song.end) {
-        plan.warnings.push(`"${clip.name}" on ${track.name} runs past the end of this song; the whole clip is transposed.`);
+        runsPast.push(track.name);
       }
       if (clip.pitch === semitones) {
         plan.clipsInKey++;
@@ -79,7 +84,26 @@ export function planKey(song: Pick<Song, 'start' | 'end'>, semitones: number, tr
       }
     }
   }
+  if (startsBefore.length) {
+    const one = startsBefore.length === 1;
+    plan.warnings.push(`${count(startsBefore.length, 'clip')} from before this song ${one ? 'carries' : 'carry'} on into it and ${one ? 'was' : 'were'} left alone (${trackList(startsBefore)}).`);
+  }
+  if (runsPast.length) {
+    const one = runsPast.length === 1;
+    plan.warnings.push(`${count(runsPast.length, 'clip')} ${one ? 'runs' : 'run'} past the end of this song and ${one ? 'is' : 'are'} transposed as a whole (${trackList(runsPast)}).`);
+  }
   return plan;
+}
+
+function count(n: number, word: string): string {
+  return n === 1 ? `1 ${word}` : `${n} ${word}s`;
+}
+
+/** "Drums, Bass, AG and 19 more tracks" */
+function trackList(names: string[]): string {
+  const unique = [...new Set(names)];
+  const shown = unique.slice(0, 3).join(', ');
+  return unique.length > 3 ? `on ${shown} and ${unique.length - 3} more tracks` : `on ${shown}`;
 }
 
 /**

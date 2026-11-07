@@ -36,6 +36,13 @@ function clock(seconds) {
 const keyText = (n) => (n > 0 ? `+${n}` : String(n));
 const bpmText = (n) => `${Math.round(n * 100) / 100} BPM`;
 
+/** "G", "G → A", or "Key +2" when the song name has no key. */
+function keyLabel(row) {
+  const moved = row.semitones !== null && row.semitones !== 0;
+  if (row.originalKey) return moved ? `${row.originalKey} → ${row.playedKey}` : row.originalKey;
+  return moved ? `Key ${keyText(row.semitones)}` : '';
+}
+
 // ---- connection ----------------------------------------------------------------
 
 function connect() {
@@ -107,6 +114,7 @@ function render() {
   $('#setLength').textContent = clock(state.totalSeconds);
   $('#endOfSong').value = state.settings.endOfSong;
   if (document.activeElement !== $('#noKeyTag')) $('#noKeyTag').value = state.settings.noKeyTag;
+  if (document.activeElement !== $('#sectionsTrack')) $('#sectionsTrack').value = state.settings.sectionsTrack;
 
   const active = document.activeElement;
   if (active && active.matches('input') && $('#setlist').contains(active)) {
@@ -135,7 +143,8 @@ function renderSetlist() {
 function songItem(row, i) {
   const tags = [];
   if (row.tempo !== null) tags.push(el('span', { class: 'tag' }, bpmText(row.tempo)));
-  if (row.semitones !== null && row.semitones !== 0) tags.push(el('span', { class: 'tag' }, `Key ${keyText(row.semitones)}`));
+  const keyTag = keyLabel(row);
+  if (keyTag) tags.push(el('span', { class: 'tag', title: row.semitones ? `${keyText(row.semitones)} semitones` : 'Original key' }, keyTag));
   if (row.key && row.key.pending) tags.push(el('span', { class: 'tag pending', title: 'Finishes when Live stops' }, 'Key waiting'));
   if (row.key && (row.key.warnings.length || row.key.error)) tags.push(el('span', { class: 'tag warn' }, '⚠'));
   if (row.missing) tags.push(el('span', { class: 'tag warn' }, 'Not in Live set'));
@@ -179,7 +188,7 @@ function keyStepper(row) {
   return el('span', { class: 'stepper' },
     el('label', {}, 'Key'),
     el('button', { class: 'small', disabled: value !== null && value <= -12, onclick: () => set((value ?? 0) - 1), 'aria-label': 'Key down' }, '−'),
-    el('output', {}, value === null ? 'off' : keyText(value)),
+    el('output', {}, value === null ? 'off' : row.originalKey ? `${keyText(value)} (${row.playedKey})` : keyText(value)),
     el('button', { class: 'small', disabled: value !== null && value >= 12, onclick: () => set((value ?? 0) + 1), 'aria-label': 'Key up' }, '+'),
     value === null ? null : el('button', { class: 'small ghost', onclick: () => set(null), title: 'Stop managing the key of this song' }, 'Off'),
     value === null ? null : el('button', { class: 'small', onclick: () => send('applyKey', { songId: row.songId }) }, 'Apply'),
@@ -272,7 +281,8 @@ function renderPosition() {
     const secIdx = inside ? focus.sections.findIndex((s) => position.beats >= s.start && position.beats < s.end) : -1;
     $('#nowSection').textContent = secIdx >= 0 ? focus.sections[secIdx].name : '';
     $('#nowTempo').textContent = bpmText(position.tempo);
-    $('#nowKey').textContent = focus.semitones ? `Key ${keyText(focus.semitones)}` : '';
+    const label = keyLabel(focus);
+    $('#nowKey').textContent = label && focus.originalKey ? `Key ${label}` : label;
     document.querySelectorAll('#sections button').forEach((b) => {
       const s = focus.sections[Number(b.dataset.i)];
       b.classList.toggle('here', Number(b.dataset.i) === secIdx);
@@ -329,6 +339,7 @@ $('#settingsBtn').onclick = async () => {
 };
 $('#endOfSong').onchange = (e) => send('settings', { settings: { endOfSong: e.target.value } });
 $('#noKeyTag').onchange = (e) => send('settings', { settings: { noKeyTag: e.target.value } });
+$('#sectionsTrack').onchange = (e) => send('settings', { settings: { sectionsTrack: e.target.value } });
 $('#rescanBtn').onclick = () => send('refresh');
 
 document.addEventListener('keydown', (e) => {

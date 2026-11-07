@@ -68,46 +68,71 @@ Open one in Safari or Chrome on any device on the same network. Tip: on an iPad 
 
 ## Naming your locators
 
-Ablcon builds songs and sections from the arrangement locators (Live's "cue points"). The rule:
+Ablcon builds songs from the arrangement locators (Live's "cue points"), and sections from either a
+**Sections** track or more locators. It understands two layouts and picks one automatically.
+
+### Plain layout (typical multitrack sets)
+
+Used when no locator name starts with `*`. This is how most worship multitrack sets are already built:
+
+| In the set | Meaning |
+| --- | --- |
+| A locator, e.g. `How Great Thou Art (F)` | A song starts here. A key in brackets at the end (`(G)`, `(Bb)`, `(Em)`…) is read as the song's original key. |
+| A locator named `STOP` (or `--`) | The current song ends here. Optional: without it a song ends where the next one starts. |
+| A locator starting with `//` | Ignored. |
+| Clips on a track named **Sections** | Each clip that starts inside a song becomes a section button, named after the clip (`Count Off`, `Intro`, `Verse 1`…). The clip's length doesn't matter: a section runs until the next one. |
+
+```
+Locators:     It Really Is Amazing Grace (G)          STOP  King Of Kings (C)        How Great Thou Art (F) …
+Sections:     [Count Off][Intro][Verse 1][Chorus]…[Ending]  [Count Off][Intro][Verse 1]…[Outro][Count Off][Intro]…
+Click / Guide / one group of stems per song
+```
+
+The Sections track can be a MIDI track with empty clips; Ablcon only reads the clip names and positions.
+If your track has another name, set it in **Settings → Track whose clips mark the sections** (leave it empty
+to turn this off).
+
+### Marked layout
+
+Used as soon as any locator name starts with `*`. Songs and sections are both locators:
 
 | Locator name | Meaning |
 | --- | --- |
-| `*Song Title` | A song starts here. A space after the `*` is fine (`* Song Title`). |
-| `--` | The current song ends here. Optional. Without it a song ends where the next song starts. |
-| `// anything` | Ignored. Use it for notes to yourself. |
+| `*Song Title` | A song starts here (a space after the `*` is fine). A key in brackets works here too. |
+| `--` or `STOP` | The current song ends here. Optional. |
+| `// anything` | Ignored. |
 | anything else | A section of the song it falls in (`Intro`, `Verse 1`, `Chorus`, `End`…). |
-
-Example arrangement:
 
 ```
 beat   0  // Pre-service loop        (ignored)
-beat   8  *Morning Light             song 1 starts
+beat   8  *Morning Light (G)         song 1 starts, original key G
 beat   8  Intro                      section
 beat  16  Verse 1                    section
-beat  48  Chorus                     section
 beat 176  Outro                      section
-beat 192  --                         song 1 ends (the gap after it is never played by Ablcon)
+beat 192  --                         song 1 ends
 beat 200  *River Wide                song 2 starts
 beat 200  Intro
-beat 248  Chorus
 beat 312  *Still Waters              song 2 ends, song 3 starts
-beat 312  Verse
 beat 392  End                        just a section name
 beat 408  --                         song 3 ends
 ```
 
-Details:
+A song with no section locators still gets its sections from the Sections track, if there is one.
 
-- A section runs until the next section or the end of the song. Put a section locator at the very start
-  of a song if you want a button for it (a song locator and a section locator can share the same beat).
-- The last song ends at its `--`, or at the end of the arrangement if it has none.
-- Locators outside any song are ignored, and the page lists them under **Locator notes** so you can
-  spot typos. That list also warns about empty songs and repeated song names.
-- Songs are matched to setlist entries by name (not case-sensitive). Renaming a song's locator makes it a
-  new song; the old entry stays in the setlist marked **Not in Live set** so you don't lose its tempo
-  and key. Remove it in Edit mode once you're sure. If two songs have the same name, the second is told
-  apart by its order.
-- Ablcon notices locator changes in Live within about a second. **Settings → Re-read locators** forces it.
+### Details
+
+- A section runs until the next section or the end of the song.
+- The last song ends at its end marker, or at the end of the arrangement if it has none.
+- In the marked layout, locators outside any song are ignored. The page lists them under
+  **Locator notes** so you can spot typos. That list also warns about empty songs and repeated song names.
+- Songs are matched to setlist entries by title, not case-sensitive and ignoring the key in brackets, so
+  changing `(G)` to `(A)` in a locator keeps the song's tempo and key settings. Renaming a song makes it a
+  new song; the old entry stays in the setlist marked **Not in Live set** so you don't lose its settings.
+  Remove it in Edit mode once you're sure. If two songs have the same title, the second is told apart by
+  its order.
+- Ablcon notices changes to locators and to the Sections track's clips within about a second.
+  **Settings → Re-read locators** forces it (needed if your sections track has a name other than
+  "Sections", or if you're still using the Remote Script from an older Ablcon).
 
 ---
 
@@ -149,15 +174,18 @@ another song is playing. If your set has tempo automation, the automation wins o
 
 ### Key per song
 
-Use − / + to pick a key change from −12 to +12 semitones. **Off** means Ablcon leaves the song's pitch
+Use − / + to pick a key change from −12 to +12 semitones. If the song's locator has its key in brackets,
+the page shows the result, e.g. **G → A**. **Off** means Ablcon leaves the song's pitch
 alone. When the song is cued or started, Ablcon:
 
 - sets **Transpose** (`pitch_coarse`) on every **warped audio clip** that **starts inside the song**, on
   every track, to the chosen number of semitones;
 - on MIDI tracks, sets the **Pitch** parameter of each **Pitch** MIDI effect (Live's built-in one, placed
   directly on the track, not inside a rack) to the same number;
-- never touches tracks whose name, or whose group's name, contains `[nokey]`. Put this on click, guide,
-  cue and spoken-word tracks. You can change the tag in Settings.
+- never touches the Sections track, or tracks whose name, or whose group's name, contains one of the
+  words in **Settings → Never transpose tracks whose names contain**. The default is `[nokey], click, guide`,
+  which covers tracks like "Click Foundations" and "Guide". Add `[nokey]` to any other track that should
+  stay put (spoken word, cues), or edit the list.
 
 The value is absolute: a key change of +2 sets clips to +2, and setting a song back to 0 resets its
 clips to 0. Leave clip Transpose at 0 in your set and let Ablcon manage it for songs that have a key set.
@@ -175,7 +203,8 @@ then. **Apply** (in Edit mode) applies a song's key on demand, following the sam
 The ⚠ tag on a song means there's something you should look at, listed under the song in Edit mode:
 
 - an audio clip that isn't warped (Live can't transpose it; turn on **Warp**),
-- a clip that starts before the song (left alone) or runs past its end (transposed as a whole),
+- clips that start before the song (left alone) or run past its end (transposed as a whole). Multitrack
+  stems often have a short tail like this; it's usually nothing to worry about,
 - a MIDI track with clips in the song but no Pitch device,
 - a change Live refused (for example a track renamed since Ablcon read it; just apply again).
 
@@ -186,7 +215,7 @@ The ⚠ tag on a song means there's something you should look at, listed under t
 - When running from source with `npm start`: `ablcon-setlist.json` in the project folder, next to the
   server. Set `ABLCON_SETLIST=/path/to/file.json` to use another file, for example one per Live set.
 
-It's plain JSON (order, tempo, key per song, and the two settings), safe to back up or copy between machines.
+It's plain JSON (order, tempo, key per song, and the settings), safe to back up or copy between machines.
 
 ---
 
@@ -221,7 +250,9 @@ npm start
 
 starts the server only; open `http://localhost:8420`. To try everything without Ableton Live, run the
 fake Live in a second terminal first. It runs the real Remote Script request handlers against a pretend
-Live set with three songs and moves the playhead while "playing":
+Live set with three songs laid out like a multitrack set (plain locators, `STOP` markers, a Sections
+track, click, guide and a group of stems per song) and moves the playhead while "playing". Add
+`-- --set marked` for the `*Song` layout instead:
 
 ```bash
 npm run fake-live
@@ -278,7 +309,9 @@ Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `t
 `npm run test:all` runs:
 
 - **OSC encoding**: known bytes, every argument type, malformed input (Node and Python).
-- **Locator parsing**: the naming rule, ordering, end markers, comments, duplicates, warnings.
+- **Locator parsing**: both layouts, including the locators and Sections clips of a real worship set,
+  `STOP` markers, keys in song names, ordering, comments, duplicates, warnings.
+- **Keys**: reading `(G)`, `(Bb)`, `(Em)` from names, transposing and spelling them.
 - **Setlist**: matching to Live, reordering, missing songs, tempo/key validation, durations, file round-trip.
 - **Tempo and key planning**: `[nokey]` tags (including on groups), warped/unwarped clips, clips crossing
   song edges, Pitch devices and their range, what may change while playing, end-of-song detection.

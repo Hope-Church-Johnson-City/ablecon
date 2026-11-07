@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(ROOT, "fake_live"))
 from Ablcon import handlers  # noqa: E402
 from Ablcon.osc import decode_message, encode_message  # noqa: E402
 from Ablcon.protocol import CHUNK_CHARS, Dispatcher  # noqa: E402
-from fake_song import Clip, CuePoint, Song, Track, demo_song  # noqa: E402
+from fake_song import Clip, CuePoint, Song, Track, demo_song, plain_song  # noqa: E402
 
 
 def request(dispatcher, method, args=None, request_id=1):
@@ -131,6 +131,22 @@ class DispatcherTests(unittest.TestCase):
         self.assertIn("renamed", request(self.d, "mute", {"track": 3, "trackName": "Pad", "muted": True})["error"])
         self.assertIn("muted", request(self.d, "mute", {"track": 3})["error"])
         self.assertFalse(request(self.d, "mute", {"track": 99, "muted": True})["ok"])
+
+    def test_signature_follows_sections_clips(self):
+        song = plain_song()
+        before = handlers.cue_signature(song)
+        song.tracks[0].arrangement_clips[1].name = "Intro 2"
+        self.assertNotEqual(handlers.cue_signature(song), before)
+        before = handlers.cue_signature(song)
+        song.tracks[1].arrangement_clips[0].name = "renamed click"  # not the Sections track
+        self.assertEqual(handlers.cue_signature(song), before)
+
+    def test_plain_set_reports_sections_clips(self):
+        d = Dispatcher(plain_song())
+        tracks = request(d, "tracks", {"start": 0, "end": 1000})["result"]["tracks"]
+        sections = tracks[0]
+        self.assertEqual(sections["name"], "Sections")
+        self.assertEqual([c["name"] for c in sections["clips"]][:3], ["Count Off", "Intro", "Verse 1"])
 
     def test_large_reply_is_chunked(self):
         cues = [CuePoint("Section %d with a fairly long name" % i, i) for i in range(600)]

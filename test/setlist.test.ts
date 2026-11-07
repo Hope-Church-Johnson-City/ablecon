@@ -6,7 +6,7 @@ import path from 'node:path';
 import * as sl from '../src/setlist.ts';
 import type { SetlistFile, Song } from '../src/types.ts';
 
-const song = (id: string, start: number, end: number): Song => ({ id, name: id.toUpperCase(), start, end, sections: [] });
+const song = (id: string, start: number, end: number): Song => ({ id, name: id.toUpperCase(), key: null, start, end, sections: [] });
 const songs = [song('a', 0, 32), song('b', 40, 72), song('c', 80, 96)];
 const ids = (f: SetlistFile | { entries: Array<{ songId: string }> }) => f.entries.map((e) => e.songId);
 
@@ -60,11 +60,32 @@ test('tempo and key validation', () => {
   assert.throws(() => sl.setSemitones(file, 'nope', 1));
 });
 
+test('keys from locator names show in the rows', () => {
+  const g: Song = { id: 'g', name: 'G Song', key: { pitch: 7, minor: false }, start: 0, end: 8, sections: [] };
+  let file = sl.reconcile(sl.emptySetlist(), [g]).file;
+  assert.deepEqual(pick(sl.setlistRows(file, [g], 120).rows[0]), ['G', 'G']);
+  file = sl.setSemitones(file, 'g', 2);
+  assert.deepEqual(pick(sl.setlistRows(file, [g], 120).rows[0]), ['G', 'A']);
+});
+const pick = (r: sl.SetlistRow) => [r.originalKey, r.playedKey];
+
+test('the old "[nokey]" default is upgraded when a file is loaded', () => {
+  const loaded = sl.parseSetlistFile(JSON.stringify({ entries: [], settings: { noKeyTag: '[nokey]', endOfSong: 'next' } }));
+  assert.equal(loaded.settings.noKeyTag, '[nokey], click, guide');
+  assert.equal(loaded.settings.endOfSong, 'next');
+  assert.equal(loaded.settings.sectionsTrack, 'Sections');
+  const custom = sl.parseSetlistFile(JSON.stringify({ entries: [], settings: { noKeyTag: 'talk', sectionsTrack: '' } }));
+  assert.equal(custom.settings.noKeyTag, 'talk');
+  assert.equal(custom.settings.sectionsTrack, '');
+});
+
 test('settings validation', () => {
   const file = sl.emptySetlist();
   assert.equal(sl.setSettings(file, { endOfSong: 'next' }).settings.endOfSong, 'next');
   assert.throws(() => sl.setSettings(file, { endOfSong: 'explode' as never }));
   assert.throws(() => sl.setSettings(file, { noKeyTag: '  ' }));
+  assert.throws(() => sl.setSettings(file, { noKeyTag: ' , ' }));
+  assert.equal(sl.setSettings(file, { noKeyTag: 'click,guide ,  cue' }).settings.noKeyTag, 'click, guide, cue');
 });
 
 test('durations use each song\'s tempo, else Live\'s', () => {

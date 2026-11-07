@@ -18,16 +18,19 @@ sys.path.insert(0, HERE)
 
 from Ablcon import handlers  # noqa: E402
 from Ablcon.protocol import Dispatcher, changed_message, position_message  # noqa: E402
-from fake_song import demo_song  # noqa: E402
+from fake_song import demo_song, plain_song  # noqa: E402
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=11100)
     parser.add_argument("--tick", type=float, default=0.1)
+    parser.add_argument("--set", choices=["plain", "marked"], default="plain",
+                        help="plain: song locators + STOP + Sections track (default); "
+                             "marked: *Song locators with section locators")
     opts = parser.parse_args()
 
-    song = demo_song()
+    song = plain_song() if opts.set == "plain" else demo_song()
     dispatcher = Dispatcher(song, "fake", lambda m: print(m, file=sys.stderr))
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("127.0.0.1", opts.port))

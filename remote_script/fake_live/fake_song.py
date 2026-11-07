@@ -154,3 +154,35 @@ def demo_song():
               devices=[pitch_device()]),
     ]
     return Song(cues, tracks, tempo=120.0, song_length=408.0)
+
+
+def plain_song():
+    """Laid out like a typical worship multitrack set: plain song locators with
+    the key in brackets, STOP markers, a MIDI "Sections" track whose clips name
+    the parts, click and guide tracks, and one group of stems per song."""
+    cues = [
+        CuePoint("Morning Light (G)", 0),
+        CuePoint("STOP", 135),
+        CuePoint("River Wide (Bb)", 140),
+        CuePoint("STOP", 263),
+        CuePoint("Still Waters (Em)", 268),
+        CuePoint("STOP", 395),
+    ]
+    parts = [
+        ("Count Off", 0, 8), ("Intro", 8, 24), ("Verse 1", 24, 56), ("Chorus", 56, 88),
+        ("Bridge", 88, 120), ("Outro", 120, 135),
+        ("Count Off", 140, 148), ("Intro", 148, 164), ("Verse", 164, 196), ("Chorus", 196, 228),
+        ("Tag", 228, 263),
+        ("Count Off", 268, 276), ("Verse", 276, 308), ("Chorus", 308, 340), ("Ending", 340, 395),
+    ]
+    tracks = [
+        Track("Sections", midi=True, clips=[Clip(n, s, e, audio=False) for n, s, e in parts]),
+        Track("Click Foundations", clips=[Clip("click", 0, 395)]),
+        Track("Guide", clips=[Clip("guide", 0, 395)]),
+    ]
+    for title, start, end in (("Morning Light", 0, 135), ("River Wide", 140, 263), ("Still Waters", 268, 395)):
+        group = Track(title, foldable=True)
+        tracks.append(group)
+        for stem in ("Drums", "Bass", "AG", "Keys", "Pad"):
+            tracks.append(Track(stem, group=group, clips=[Clip("%s %s" % (title, stem), start, end)]))
+    return Song(cues, tracks, tempo=72.0, song_length=395.0)

@@ -2,9 +2,10 @@
 // JSON file, separate from the Live set, so reordering never edits the set.
 
 import { promises as fs } from 'node:fs';
+import { keyName, transposeKey } from './keys.ts';
 import type { EndOfSong, SetlistEntry, SetlistFile, SetlistSettings, Song } from './types.ts';
 
-export const DEFAULT_SETTINGS: SetlistSettings = { endOfSong: 'stop', noKeyTag: '[nokey]' };
+export const DEFAULT_SETTINGS: SetlistSettings = { endOfSong: 'stop', noKeyTag: '[nokey], click, guide', sectionsTrack: 'Sections' };
 const END_MODES: EndOfSong[] = ['stop', 'next', 'continue'];
 
 export function emptySetlist(): SetlistFile {
@@ -103,9 +104,12 @@ export function setSettings(file: SetlistFile, patch: Partial<SetlistSettings>):
     settings.endOfSong = patch.endOfSong;
   }
   if (patch.noKeyTag !== undefined) {
-    const tag = String(patch.noKeyTag).trim();
-    if (!tag) throw new Error('the no-key tag cannot be empty');
-    settings.noKeyTag = tag;
+    const words = String(patch.noKeyTag).split(',').map((w) => w.trim()).filter(Boolean);
+    if (words.length === 0) throw new Error('list at least one word for tracks that should never be transposed');
+    settings.noKeyTag = words.join(', ');
+  }
+  if (patch.sectionsTrack !== undefined) {
+    settings.sectionsTrack = String(patch.sectionsTrack).trim();
   }
   return { ...file, settings };
 }
@@ -118,6 +122,8 @@ export function songSeconds(song: Song, bpm: number): number {
 
 export interface SetlistRow extends SetlistEntry {
   missing: boolean;
+  originalKey: string | null; // e.g. "G", from the locator name
+  playedKey: string | null; // originalKey moved by semitones, e.g. "A
   start: number | null;
   end: number | null;
   sections: Song['sections'];
@@ -129,10 +135,12 @@ export function setlistRows(file: SetlistFile, songs: Song[], liveTempo: number)
   let total = 0;
   const rows = file.entries.map((entry): SetlistRow => {
     const song = byId.get(entry.songId);
-    if (!song) return { ...entry, missing: true, start: null, end: null, sections: [], seconds: null };
+    if (!song) return { ...entry, missing: true, originalKey: null, playedKey: null, start: null, end: null, sections: [], seconds: null };
     const seconds = songSeconds(song, entry.tempo ?? liveTempo);
     total += seconds;
-    return { ...entry, missing: false, start: song.start, end: song.end, sections: song.sections, seconds };
+    const originalKey = song.key ? keyName(song.key) : null;
+    const playedKey = song.key ? keyName(transposeKey(song.key, entry.semitones ?? 0)) : null;
+    return { ...entry, missing: false, originalKey, playedKey, start: song.start, end: song.end, sections: song.sections, seconds };
   });
   return { rows, totalSeconds: total };
 }
@@ -151,10 +159,14 @@ export function parseSetlistFile(text: string): SetlistFile {
       semitones: safe(() => validateSemitones(e.semitones)),
     }));
   let file: SetlistFile = { version: 1, entries, settings: { ...DEFAULT_SETTINGS } };
-  try {
-    file = setSettings(file, data.settings ?? {});
-  } catch {
-    // keep defaults for anything invalid
+  const saved: Partial<SetlistSettings> = { ...(data.settings ?? {}) };
+  if (saved.noKeyTag === '[nokey]') delete saved.noKeyTag; // the old default; use the new one
+  for (const [k, v] of Object.entries(saved)) {
+    try {
+      file = setSettings(file, { [k]: v });
+    } catch {
+      // keep the default for anything invalid
+    }
   }
   return file;
 }

@@ -58,9 +58,20 @@ def cues(song, args):
     }
 
 
+SECTIONS_TRACK = "sections"
+
+
 def cue_signature(song):
-    """Cheap fingerprint of the locators, used to notice edits in Live."""
-    return tuple((cp.name, round(cp.time, 4)) for cp in song.cue_points)
+    """Cheap fingerprint of the locators and of the clips on a track named
+    "Sections", used to notice edits in Live."""
+    cues = tuple((cp.name, round(cp.time, 4)) for cp in song.cue_points)
+    clips = ()
+    for track in song.tracks:
+        if track.name.strip().lower() == SECTIONS_TRACK:
+            clips = tuple((c.name, round(c.start_time, 4))
+                          for c in _safe(lambda: list(track.arrangement_clips), []))
+            break
+    return cues, clips
 
 
 def play(song, args):

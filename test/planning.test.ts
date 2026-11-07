@@ -49,10 +49,24 @@ test('key plan transposes warped audio and Pitch devices, skipping tagged tracks
   assert.equal(plan.clipsInKey, 1);
   const w = plan.warnings.join('\n');
   assert.match(w, /"unwarped" on Keys is not warped/);
-  assert.match(w, /"long tail" on Keys runs past the end/);
-  assert.match(w, /"from before" on Pad starts before/);
+  assert.match(w, /1 clip runs past the end of this song and is transposed as a whole \(on Keys\)/);
+  assert.match(w, /1 clip from before this song carries on into it and was left alone \(on Pad\)/);
   assert.match(w, /Bass MIDI has no Pitch device/);
   assert.doesNotMatch(w, /click|talk/);
+});
+
+test('the default word list keeps click, guide and the Sections track untouched', () => {
+  const words = '[nokey], click, guide';
+  const t: TrackInfo[] = [
+    { index: 0, name: 'Sections', parents: [], isMidi: true, isAudio: false, isGroup: false, pitchDevices: [],
+      clips: [{ index: 0, name: 'Intro', start: 0, end: 8, isAudio: false, warping: null, pitch: null }] },
+    { index: 1, name: 'Click Foundations', parents: [], isMidi: false, isAudio: true, isGroup: false, pitchDevices: [], clips: [audio(0, 'click', 0, 64)] },
+    { index: 2, name: 'Guide', parents: [], isMidi: false, isAudio: true, isGroup: false, pitchDevices: [], clips: [audio(0, 'guide', 0, 64)] },
+    { index: 3, name: 'Drums', parents: ['King Of Kings'], isMidi: false, isAudio: true, isGroup: false, pitchDevices: [], clips: [audio(0, 'drums', 0, 64)] },
+  ];
+  const plan = planKey({ start: 0, end: 64 }, 2, t, words, 'Sections');
+  assert.deepEqual(plan.clipOps.map((o) => o.trackName), ['Drums']);
+  assert.deepEqual(plan.warnings, [], 'no "MIDI track Sections has no Pitch device" warning');
 });
 
 test('key 0 resets clips and devices that were moved', () => {

@@ -2,7 +2,7 @@
 // calls these methods and listens for "state", "position" and "notice".
 
 import { EventEmitter } from 'node:events';
-import { parseLocators } from './locators.ts';
+import { parseLocators, type SectionClip } from './locators.ts';
 import { endOfSongAction, planKey, planTempo, songAt, splitKeyPlan } from './planning.ts';
 import * as setlist from './setlist.ts';
 import type { Cue, KeyOp, MixerTrack, Position, SetlistFile, SetlistSettings, Song, TrackInfo } from './types.ts';
@@ -130,7 +130,8 @@ export class Controller extends EventEmitter<ControllerEvents> {
         this.live.call<Position>('state'),
       ]);
       this.position = { ...this.position, ...state };
-      const parsed = parseLocators(cueReply.cues, cueReply.songLength);
+      const sectionClips = await this.readSectionClips(cueReply.cues, cueReply.songLength);
+      const parsed = parseLocators(cueReply.cues, cueReply.songLength, sectionClips);
       this.songs = parsed.songs;
       this.parseWarnings = parsed.warnings;
       const { file, changed } = setlist.reconcile(this.file, this.songs);
@@ -139,6 +140,16 @@ export class Controller extends EventEmitter<ControllerEvents> {
       await this.refreshTracks();
       this.emit('state');
     });
+  }
+
+  /** Clips on the sections track (by name, see Settings), or none if the set has no such track. */
+  private async readSectionClips(cues: Cue[], songLength: number): Promise<SectionClip[]> {
+    const wanted = this.file.settings.sectionsTrack.trim().toLowerCase();
+    if (!wanted) return [];
+    const end = Math.max(songLength, ...cues.map((c) => c.time)) + 1;
+    const { tracks } = await this.live.call<{ tracks: TrackInfo[] }>('tracks', { start: 0, end });
+    const track = tracks.find((t) => !t.isGroup && t.name.trim().toLowerCase() === wanted);
+    return track ? track.clips.map((c) => ({ name: c.name, start: c.start })) : [];
   }
 
   /**
@@ -210,7 +221,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
     if (semitones === null) return;
     const song = this.song(songId);
     const { tracks } = await this.live.call<{ tracks: TrackInfo[] }>('tracks', { start: song.start, end: song.end });
-    const plan = planKey(song, semitones, tracks, this.file.settings.noKeyTag);
+    const plan = planKey(song, semitones, tracks, this.file.settings.noKeyTag, this.file.settings.sectionsTrack);
     const { now, later } = splitKeyPlan(plan, song, this.position);
     const errors = await this.applyOps(now);
     if (later.length > 0) this.pendingKeys.add(songId);
@@ -383,6 +394,12 @@ export class Controller extends EventEmitter<ControllerEvents> {
   }
 
   updateSettings(patch: Partial<SetlistSettings>): Promise<void> {
-    return this.run(() => this.save(setlist.setSettings(this.file, patch)));
+    return this.run(async () => {
+      const before = this.file.settings.sectionsTrack;
+      await this.save(setlist.setSettings(this.file, patch));
+      if (this.file.settings.sectionsTrack !== before && this.live.connected) {
+        void this.refresh().catch((err) => this.notice('error', err.message));
+      }
+    });
   }
 }
