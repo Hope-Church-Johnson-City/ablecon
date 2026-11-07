@@ -140,11 +140,26 @@ class DispatcherTests(unittest.TestCase):
                 break
             song.current_song_time += 0.2
         self.assertIsNotNone(jumped_at)
-        self.assertLessEqual(jumped_at, 24, "jumps on the last tick before the bar line, never late")
-        self.assertGreater(jumped_at, 23.7)
+        self.assertLess(jumped_at, 24, "jumps on the last tick before the bar line, never late")
+        self.assertGreaterEqual(jumped_at, 24 - 0.2 - 1e-9, "but no more than one tick early")
         # The target is offset by the same amount, so it lands exactly on time.
         self.assertAlmostEqual(song.current_song_time, 48 - (24 - jumped_at))
         self.assertFalse(handlers.run_scheduled_jump(song, tick), "only once")
+
+    def test_scheduled_jump_with_live_like_jitter(self):
+        # Ticks as measured in Live 12 at 128 BPM: about 0.1 s apart, uneven.
+        song = demo_song()
+        song.tempo = 128.0
+        d = Dispatcher(song)
+        song.is_playing = True
+        song.current_song_time = 14.072
+        request(d, "jump_at", {"at": 16, "to": 40})
+        for step in (0.238, 0.217, 0.195, 0.238, 0.195, 0.238, 0.217, 0.195, 0.238):
+            if handlers.run_scheduled_jump(song, 0.1):
+                break
+            song.current_song_time += step
+        self.assertLess(song.current_song_time, 40, "jumped into the lead-in, before Verse 1's downbeat")
+        self.assertGreater(song.current_song_time, 39.7)
 
     def test_scheduled_jump_cancels(self):
         song = demo_song()

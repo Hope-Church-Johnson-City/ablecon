@@ -158,7 +158,7 @@ A song with no section locators still gets its sections from the Sections track,
   is nothing to jump over and it says so. When Live is stopped it moves there straight away. The wait
   can be 1, 2 or 4 bars (**Settings**). Bars are counted from the start of the arrangement in the set's
   time signature, so time-signature changes inside the set can throw the count off. The timing runs
-  inside Live (Remote Script 1.4.0 or newer): the jump happens on Live's last update before the bar
+  inside Live (Remote Script 1.4.1 or newer): the jump happens on Live's last update before the bar
   line, into the matching point just before the new section, so its downbeat lands on time.
 - **Edit** shows the reorder arrows (↑ ↓), the tempo box and the key buttons for each song.
 - **Tracks** gives every track an **M** (mute) and **S** (solo) button, laid out compactly:

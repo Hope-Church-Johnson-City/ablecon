@@ -5,7 +5,7 @@ something JSON-serialisable. Nothing here imports Live modules, so the same
 code runs under the unit tests with a fake Song.
 """
 
-SCRIPT_VERSION = "1.4.0"
+SCRIPT_VERSION = "1.4.1"
 
 # Class name Live reports for its built-in "Pitch" MIDI effect.
 PITCH_DEVICE_CLASS = "MidiPitcher"
@@ -174,12 +174,14 @@ def cancel_jump(song, args):
 def run_scheduled_jump(song, tick_seconds):
     """Called every tick. Performs a scheduled jump so the target lands on time.
 
-    Ticks come roughly every 60-100 ms, so the jump can't happen exactly at
-    `at`. It happens on the last tick before `at`, into the matching point
-    just before `to`: the target's downbeat then plays exactly when `at`
-    would have, and only the last few milliseconds of the old bar are
-    replaced by the end of the bar before the target. Returns True when it
-    jumped.
+    Ticks come roughly every 100 ms, so the jump can't happen exactly at
+    `at`. It happens on the last tick before `at` (when the next tick would
+    already be past it), into the matching point just before `to`: the
+    target's downbeat then plays exactly when `at` would have, and only the
+    last tick's worth of the old bar is replaced by the end of the bar before
+    the target, which is usually its natural lead-in. Waiting for a tick
+    after `at` instead would clip the target's downbeat (seen in Live: about
+    20 ms late with a smaller margin). Returns True when it jumped.
     """
     at = _scheduled["at"]
     if at is None:
@@ -190,7 +192,9 @@ def run_scheduled_jump(song, tick_seconds):
         _clear_scheduled()
         return False
     beats_per_second = song.tempo / 60.0
-    lead = max(0.02, min(tick_seconds, 0.25)) * beats_per_second * 0.75
+    # One tick's worth of beats, plus a little for jitter: if the next tick
+    # would land after `at`, this tick is the last one before it.
+    lead = min(0.5, max(0.02, min(tick_seconds, 0.25)) * beats_per_second * 1.2)
     if now >= at - lead:
         song.current_song_time = max(0.0, _scheduled["to"] - (at - now))
         _clear_scheduled()
