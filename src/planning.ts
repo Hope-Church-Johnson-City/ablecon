@@ -106,6 +106,22 @@ export function sectionIndexAt(song: Song, beats: number): number {
   return song.sections.findIndex((s) => beats >= s.start && beats < s.end);
 }
 
+/** Beats in one bar (Live counts quarter notes). */
+export function barBeats(signature: [number, number]): number {
+  const [num, den] = signature;
+  return num > 0 && den > 0 ? (num * 4) / den : 4;
+}
+
+/**
+ * Where a "next section" jump happens: on the `bars`-th bar line after `beats`,
+ * counting bars from the start of the arrangement. Returns null when the next
+ * section starts by then anyway (nothing to jump over).
+ */
+export function nextSectionJumpPoint(beats: number, bars: number, bar: number, nextStart: number): number | null {
+  const at = (Math.floor(beats / bar + 1e-9) + bars) * bar;
+  return nextStart <= at + 1e-6 ? null : at;
+}
+
 /** How far the playhead may move past a song's end in one update and still count as "played through". */
 const NATURAL_STEP_BEATS = 8;
 

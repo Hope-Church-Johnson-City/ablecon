@@ -150,6 +150,16 @@ A song with no section locators still gets its sections from the Sections track,
 - **Sections:** with **Tap jumps**, a section button moves the playhead there and keeps playing.
   With **Tap loops**, it turns on Live's loop around that section (tap again, or **Loop off**, to stop
   looping). The looping section is highlighted blue.
+- **Next section** (above the section buttons) goes to the next section of the current song. While Live
+  is playing, it waits and jumps on the second bar line after your tap (tap halfway through bar 5 and
+  it jumps when bar 7 would start), so the new section starts on a downbeat. The button counts down
+  ("→ Chorus in 5 beats") and the target section is highlighted; tap it again to cancel. Stop, Play,
+  or jumping somewhere else also cancels it. If the next section would start before then anyway, there
+  is nothing to jump over and it says so. When Live is stopped it moves there straight away. The wait
+  can be 1, 2 or 4 bars (**Settings**). Bars are counted from the start of the arrangement in the set's
+  time signature, so time-signature changes inside the set can throw the count off. The timing runs
+  inside Live (Remote Script 1.4.0 or newer): the jump happens on Live's last update before the bar
+  line, into the matching point just before the new section, so its downbeat lands on time.
 - **Edit** shows the reorder arrows (↑ ↓), the tempo box and the key buttons for each song.
 - **Tracks** gives every track an **M** (mute) and **S** (solo) button, laid out compactly:
   - Tracks outside any group (click, guide…) are at the top. The Sections track is left out, since muting
@@ -342,7 +352,7 @@ OSC messages over UDP on 127.0.0.1. The script listens on port 11100 and replies
 Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `tempo {bpm}`,
 `loop {start, length, enabled}`, `tracks {start, end}`, `apply {ops}`, `mixer`,
 `mute {track, trackName, muted}`, `solo {track, trackName, soloed}`, `clear_solos`, `play_from {beats}`,
-`restore_tempo`. Replies are split into chunks of
+`restore_tempo`, `jump_at {at, to}`, `cancel_jump`. Replies are split into chunks of
 6000 ASCII characters to stay under macOS's 9216-byte UDP datagram limit.
 
 ### Tests
@@ -383,6 +393,7 @@ be heard; the page asks you to update the script when that happens.
 Still to check in Live 11 and 12:
 
 - Changing clip transpose and device parameters, and section loops (tempo and playhead changes work).
+- How cleanly a **Next section** jump sounds in a real set (the timing logic is tested against the fakes).
 - Setting `Clip.pitch_coarse`, and that the Pitch MIDI effect reports `class_name` `"MidiPitcher"` with a
   parameter named `"Pitch"`. (Reading locators, arrangement clips, `warping` and groups works.)
 - Muting and soloing from Ablcon, `Track.muted_via_solo`, and that checking every track's mute state ten times a

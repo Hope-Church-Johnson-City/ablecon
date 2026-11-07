@@ -5,6 +5,7 @@ Script, so it needs no MIDI ports. Live calls update_display() roughly every
 100 ms; that is where the UDP socket is polled and the play position pushed.
 """
 import socket
+import time
 
 from . import handlers
 from .protocol import Dispatcher, changed_message, position_message
@@ -22,6 +23,8 @@ class AblconSurface(object):
         self._last_cues = None
         self._last_mixer = None
         self._tick = 0
+        self._tick_seconds = 0.1  # smoothed time between update_display calls
+        self._last_tick_time = None
         self._sock = None
         version = None
         try:
@@ -98,8 +101,16 @@ class AblconSurface(object):
         if self._sock is None:
             return
         try:
+            now = time.time()
+            if self._last_tick_time is not None:
+                gap = now - self._last_tick_time
+                if 0 < gap < 1:
+                    self._tick_seconds = self._tick_seconds * 0.8 + gap * 0.2
+            self._last_tick_time = now
             self._poll()
-            handlers.apply_pending_jump(self._c.song())
+            song = self._c.song()
+            handlers.apply_pending_jump(song)
+            handlers.run_scheduled_jump(song, self._tick_seconds)
             self._push()
         except Exception as exc:
             self._log("tick error: %s" % exc)

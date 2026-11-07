@@ -5,7 +5,8 @@ import { promises as fs } from 'node:fs';
 import { keyName, transposeKey } from './keys.ts';
 import type { EndOfSong, SetlistEntry, SetlistFile, SetlistSettings, Song } from './types.ts';
 
-export const DEFAULT_SETTINGS: SetlistSettings = { endOfSong: 'stop', noKeyTag: '[nokey], click, guide', sectionsTrack: 'Sections' };
+export const DEFAULT_SETTINGS: SetlistSettings = { endOfSong: 'stop', noKeyTag: '[nokey], click, guide', sectionsTrack: 'Sections', jumpBars: 2 };
+const JUMP_BARS = [1, 2, 4];
 const END_MODES: EndOfSong[] = ['stop', 'next', 'continue'];
 
 export function emptySetlist(): SetlistFile {
@@ -117,6 +118,11 @@ export function setSettings(file: SetlistFile, patch: Partial<SetlistSettings>):
   }
   if (patch.sectionsTrack !== undefined) {
     settings.sectionsTrack = String(patch.sectionsTrack).trim();
+  }
+  if (patch.jumpBars !== undefined) {
+    const bars = Number(patch.jumpBars);
+    if (!JUMP_BARS.includes(bars)) throw new Error(`"Next section" can wait ${JUMP_BARS.join(', ')} bars`);
+    settings.jumpBars = bars;
   }
   return { ...file, settings };
 }

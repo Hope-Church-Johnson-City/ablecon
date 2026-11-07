@@ -58,6 +58,8 @@ async function dispatch(c: Controller, cmd: Command): Promise<void> {
     case 'section': return c.jumpToSection(id, n(cmd.section));
     case 'loop': return c.toggleLoop(id, n(cmd.section));
     case 'loopOff': return c.loopOff();
+    case 'nextSection': return c.nextSection();
+    case 'cancelJump': return c.cancelJump();
     case 'move': return c.move(n(cmd.from), n(cmd.to));
     case 'reorder': return c.reorder((cmd.order as string[]) ?? []);
     case 'remove': return c.remove(id);

@@ -5,7 +5,7 @@ something JSON-serialisable. Nothing here imports Live modules, so the same
 code runs under the unit tests with a fake Song.
 """
 
-SCRIPT_VERSION = "1.3.0"
+SCRIPT_VERSION = "1.4.0"
 
 # Class name Live reports for its built-in "Pitch" MIDI effect.
 PITCH_DEVICE_CLASS = "MidiPitcher"
@@ -136,6 +136,67 @@ def play_from(song, args):
     _pending_jump["beats"] = beats
     song.continue_playing()
     return {"method": "jump_after_start"}
+
+
+# A jump scheduled for a later beat (e.g. "next section in two bars").
+# Ablcon's server only sees the playhead ~10 times a second, so the timing
+# lives here, on Live's own tick.
+_scheduled = {"at": None, "to": None, "seen": None}
+
+
+def _clear_scheduled():
+    _scheduled.update(at=None, to=None, seen=None)
+
+
+def jump_at(song, args):
+    """Jump to beat `to` when playback reaches beat `at`."""
+    at = _num(args, "at")
+    to = _num(args, "to")
+    if to < 0:
+        raise RequestError("'to' must be >= 0")
+    if not song.is_playing:
+        _clear_scheduled()
+        jump(song, {"beats": to})
+        return {"method": "now"}
+    now = song.current_song_time
+    if at <= now:
+        raise RequestError("that point has already been played")
+    _scheduled.update(at=at, to=to, seen=now)
+    return {"method": "scheduled"}
+
+
+def cancel_jump(song, args):
+    was = _scheduled["at"] is not None
+    _clear_scheduled()
+    return {"cancelled": was}
+
+
+def run_scheduled_jump(song, tick_seconds):
+    """Called every tick. Performs a scheduled jump so the target lands on time.
+
+    Ticks come roughly every 60-100 ms, so the jump can't happen exactly at
+    `at`. It happens on the last tick before `at`, into the matching point
+    just before `to`: the target's downbeat then plays exactly when `at`
+    would have, and only the last few milliseconds of the old bar are
+    replaced by the end of the bar before the target. Returns True when it
+    jumped.
+    """
+    at = _scheduled["at"]
+    if at is None:
+        return False
+    now = song.current_song_time
+    # Stopped, or the playhead was moved (backwards, or far past the point): give up.
+    if not song.is_playing or now < _scheduled["seen"] - 0.01 or now > at + 4:
+        _clear_scheduled()
+        return False
+    beats_per_second = song.tempo / 60.0
+    lead = max(0.02, min(tick_seconds, 0.25)) * beats_per_second * 0.75
+    if now >= at - lead:
+        song.current_song_time = max(0.0, _scheduled["to"] - (at - now))
+        _clear_scheduled()
+        return True
+    _scheduled["seen"] = now
+    return False
 
 
 def apply_pending_jump(song):
@@ -361,6 +422,8 @@ HANDLERS = {
     "stop": stop,
     "jump": jump,
     "play_from": play_from,
+    "jump_at": jump_at,
+    "cancel_jump": cancel_jump,
     "tempo": tempo,
     "restore_tempo": restore_tempo,
     "loop": loop,

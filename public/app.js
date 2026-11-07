@@ -113,6 +113,7 @@ function render() {
   setLink(state.connected, state.connected ? `Live ${state.liveVersion || ''}`.trim() : 'Live not found');
   $('#setLength').textContent = clock(state.totalSeconds);
   $('#endOfSong').value = state.settings.endOfSong;
+  $('#jumpBars').value = String(state.settings.jumpBars ?? 2);
   if (document.activeElement !== $('#noKeyTag')) $('#noKeyTag').value = state.settings.noKeyTag;
   if (document.activeElement !== $('#sectionsTrack')) $('#sectionsTrack').value = state.settings.sectionsTrack;
 
@@ -355,6 +356,30 @@ function renderTracks() {
   renderLevel(trackTree(tracks).children, box);
 }
 
+/** The Next section button: what it will do, or the countdown to a waiting jump. */
+function renderNextSection(here, focus) {
+  const btn = $('#nextSectionBtn');
+  const pj = state.pendingJump;
+  document.querySelectorAll('#sections button').forEach((b) => {
+    b.classList.toggle('target', !!pj && focus && pj.songId === focus.songId && Number(b.dataset.i) === pj.sectionIndex);
+  });
+  if (pj) {
+    const left = Math.max(0, Math.ceil(pj.at - position.beats - 1e-6));
+    btn.classList.add('pending');
+    btn.disabled = false;
+    btn.replaceChildren(el('span', {}, `→ ${pj.name} in ${left} beat${left === 1 ? '' : 's'}`), el('span', { class: 'sub' }, 'Tap to cancel'));
+    return;
+  }
+  btn.classList.remove('pending');
+  const row = here || focus;
+  const i = row ? row.sections.findIndex((s) => position.beats >= s.start && position.beats < s.end) : -1;
+  const next = row ? (i >= 0 ? row.sections[i + 1] : row.sections.find((s) => s.start > position.beats)) : null;
+  btn.disabled = !next;
+  const bars = state.settings.jumpBars ?? 2;
+  const when = position.playing ? ` · after ${bars} bar${bars === 1 ? '' : 's'}` : '';
+  btn.replaceChildren(el('span', {}, next ? `Next section → ${next.name}` : 'Next section'), next ? el('span', { class: 'sub' }, when.replace(' · ', '')) : null);
+}
+
 let sectionsFor = null;
 function renderSections() {
   const row = focusRow();
@@ -418,6 +443,7 @@ function renderPosition() {
     $('#barFill').style.width = '0';
   }
   $('#loopOffBtn').classList.toggle('hidden', !position.loop.enabled);
+  renderNextSection(here, focus);
 
   document.querySelectorAll('#setlist .song').forEach((li) => li.classList.toggle('current', !!here && li.dataset.id === here.songId));
 
@@ -450,6 +476,7 @@ $('#nextBtn').onclick = () => {
   if (next) send('cue', { songId: next.songId });
 };
 $('#loopOffBtn').onclick = () => send('loopOff');
+$('#nextSectionBtn').onclick = () => send(state && state.pendingJump ? 'cancelJump' : 'nextSection');
 $('#clearSolosBtn').onclick = () => send('clearSolos');
 $('#tracksBtn').onclick = () => {
   tracksOpen = !tracksOpen;
@@ -475,6 +502,7 @@ $('#settingsBtn').onclick = async () => {
   } catch { /* offline */ }
 };
 $('#endOfSong').onchange = (e) => send('settings', { settings: { endOfSong: e.target.value } });
+$('#jumpBars').onchange = (e) => send('settings', { settings: { jumpBars: Number(e.target.value) } });
 $('#noKeyTag').onchange = (e) => send('settings', { settings: { noKeyTag: e.target.value } });
 $('#sectionsTrack').onchange = (e) => send('settings', { settings: { sectionsTrack: e.target.value } });
 $('#rescanBtn').onclick = () => send('refresh');

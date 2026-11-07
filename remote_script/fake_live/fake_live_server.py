@@ -52,6 +52,7 @@ def main():
             pass
         now = time.monotonic()
         handlers.apply_pending_jump(song)
+        handlers.run_scheduled_jump(song, opts.tick)
         song.advance(now - last)
         last = now
         if client is not None:

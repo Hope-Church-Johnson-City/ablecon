@@ -414,6 +414,88 @@ test('with an old Remote Script, restoring the tempo asks for an update once', a
   }
 });
 
+test('Next section while playing waits for the second bar line, then jumps', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    // First: Verse 0-16, Chorus 16-32 (4/4, so a bar is 4 beats).
+    await controller.start('first');
+    fake.set.beats = 5; // in bar 2
+    fake.pushPosition();
+    await until(() => controller.position.beats === 5);
+    await controller.nextSection();
+    assert.deepEqual(fake.scheduled, { at: 12, to: 16 }, 'jump at the start of bar 4 (two bar lines on)');
+    assert.equal(controller.pendingJump?.name, 'Chorus');
+    assert.equal(controller.snapshot().pendingJump?.at, 12);
+    fake.set.beats = 11.9;
+    fake.pushPosition(); // the fake, like the script, jumps on its last tick before beat 12
+    await until(() => controller.pendingJump === null);
+    assert.ok(Math.abs(fake.set.beats - 15.9) < 1e-9, 'landed so the Chorus downbeat is on time');
+  } finally {
+    done();
+  }
+});
+
+test('Next section: nothing to jump when the section starts within the wait anyway', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await controller.start('first');
+    fake.set.beats = 13; // bar 4: two bar lines on is beat 20, after the Chorus starts at 16
+    fake.pushPosition();
+    await until(() => controller.position.beats === 13);
+    const notices: string[] = [];
+    controller.on('notice', (n) => notices.push(n.text));
+    await controller.nextSection();
+    assert.equal(fake.scheduled, null);
+    assert.match(notices.join(), /Chorus starts within 2 bars anyway/);
+  } finally {
+    done();
+  }
+});
+
+test('Next section when stopped moves straight there; cancel and stop drop a waiting jump', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await controller.cue('first');
+    await controller.nextSection();
+    assert.equal(fake.set.beats, 16);
+    assert.equal(fake.set.playing, false);
+    await controller.updateSettings({ jumpBars: 1 });
+    await controller.start('second');
+    await controller.nextSection(); // at beat 40: one bar line on is 44; Chorus at 56
+    assert.deepEqual(fake.scheduled, { at: 44, to: 56 });
+    await controller.cancelJump();
+    assert.equal(fake.scheduled, null);
+    assert.equal(controller.pendingJump, null);
+    await controller.nextSection();
+    await controller.stop();
+    assert.equal(fake.scheduled, null, 'stopping cancels it');
+    await controller.cue('second');
+    await controller.nextSection(); // stopped at Verse: goes to Chorus...
+    await assert.rejects(controller.nextSection(), /no section after/); // ...the last one
+  } finally {
+    done();
+  }
+});
+
+test('Next section with an old Remote Script says to update it', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.oldScript = true;
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await controller.start('first');
+    await assert.rejects(controller.nextSection(), /newer Remote Script/);
+  } finally {
+    done();
+  }
+});
+
 test('section loop toggles on and off', async () => {
   const { fake, controller, client, done } = await setup();
   try {

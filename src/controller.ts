@@ -3,7 +3,7 @@
 
 import { EventEmitter } from 'node:events';
 import { parseLocators, type SectionClip } from './locators.ts';
-import { crossedEnd, endOfSongAction, flowsInto, planKey, planTempo, songAt, splitKeyPlan } from './planning.ts';
+import { barBeats, crossedEnd, endOfSongAction, flowsInto, nextSectionJumpPoint, planKey, planTempo, sectionIndexAt, songAt, splitKeyPlan } from './planning.ts';
 import * as setlist from './setlist.ts';
 import type { Cue, KeyOp, MixerTrack, Position, SetlistFile, SetlistSettings, Song, TrackInfo } from './types.ts';
 
@@ -47,6 +47,9 @@ export class Controller extends EventEmitter<ControllerEvents> {
   private flushing = false;
   private tempoSaving = new Set<string>();
   private oldScriptWarned = false;
+  signature: [number, number] = [4, 4];
+  /** A "next section" jump waiting for its bar line, if any. */
+  pendingJump: { songId: string; sectionIndex: number; name: string; at: number; to: number } | null = null;
   private tempoOverridden = false; // Ablcon set a tempo, so Live's tempo automation is overridden
   private restoreWarned = false;
   tracks: MixerTrack[] = [];
@@ -113,6 +116,8 @@ export class Controller extends EventEmitter<ControllerEvents> {
       settings: this.file.settings,
       cuedId: this.cuedId,
       position: this.position,
+      pendingJump: this.pendingJump,
+      barBeats: barBeats(this.signature),
     };
   }
 
@@ -134,6 +139,8 @@ export class Controller extends EventEmitter<ControllerEvents> {
         this.live.call<Position>('state'),
       ]);
       this.position = { ...this.position, ...state };
+      const sig = (state as { signature?: [number, number] }).signature;
+      if (Array.isArray(sig) && sig.length === 2) this.signature = sig;
       // Tempo automation overridden before Ablcon started (or by an earlier
       // run): hand it back as soon as a song without its own tempo is chosen.
       if ((state as { automationOverridden?: boolean }).automationOverridden) this.tempoOverridden = true;
@@ -216,6 +223,15 @@ export class Controller extends EventEmitter<ControllerEvents> {
     const prev = this.position;
     this.position = pos;
     this.emit('position', pos);
+    const pj = this.pendingJump;
+    if (pj) {
+      const arrived = pos.beats >= pj.to - 0.5 && pos.beats < pj.to + 16;
+      const abandoned = !pos.playing || pos.beats < prev.beats - 0.5 || pos.beats > pj.at + 4;
+      if (arrived || abandoned) {
+        this.pendingJump = null;
+        this.emit('state');
+      }
+    }
     const wasIn = songAt(this.songs, prev.beats);
     const nowIn = songAt(this.songs, pos.beats);
     const action = endOfSongAction(prev, pos, wasIn, this.file.settings.endOfSong);
@@ -418,6 +434,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
   private async startAt(beats: number): Promise<void> {
     try {
       await this.live.call('play_from', { beats });
+      this.position = { ...this.position, beats, playing: true }; // Live's report lags a tick
       return;
     } catch (err) {
       if (!/unknown method/.test((err as Error).message)) throw err;
@@ -430,6 +447,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
     await this.live.call('continue');
     await playing;
     await this.live.call('jump', { beats });
+    this.position = { ...this.position, beats, playing: true };
   }
 
   private waitForPlaying(ms: number): Promise<void> {
@@ -447,6 +465,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
 
   stop(): Promise<void> {
     return this.run(async () => {
+      await this.dropPendingJump();
       if (!this.position.playing) {
         // Stop while stopped: back to the start of the current song.
         const song = songAt(this.songs, this.position.beats) ?? (this.cuedId ? this.song(this.cuedId) : null);
@@ -491,6 +510,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
   /** Jump to a song (or one of its sections) and play. */
   start(songId: string, sectionIndex?: number): Promise<void> {
     return this.run(async () => {
+      await this.dropPendingJump();
       const song = this.song(songId);
       const beats = sectionIndex === undefined ? song.start : this.sectionOf(song, sectionIndex).start;
       await this.prepare(songId, { jump: true, beats });
@@ -498,9 +518,64 @@ export class Controller extends EventEmitter<ControllerEvents> {
     });
   }
 
+  /**
+   * Go to the next section of the current song. Playing: wait for the
+   * configured number of bar lines, then jump (the Remote Script does the
+   * timing). Stopped: move there now.
+   */
+  nextSection(): Promise<void> {
+    return this.run(async () => {
+      const beats = this.position.beats;
+      const song = songAt(this.songs, beats) ?? (this.cuedId ? this.song(this.cuedId) : null);
+      if (!song) throw new Error('The playhead is not in a song.');
+      const here = sectionIndexAt(song, beats);
+      const nextIndex = here >= 0 ? here + 1 : song.sections.findIndex((s) => s.start > beats);
+      const next = nextIndex >= 0 ? song.sections[nextIndex] : undefined;
+      if (!next) throw new Error(`There is no section after this one in "${song.name}".`);
+      if (!this.position.playing) {
+        await this.live.call('jump', { beats: next.start });
+        this.position = { ...this.position, beats: next.start };
+        return;
+      }
+      const bars = this.file.settings.jumpBars;
+      const at = nextSectionJumpPoint(beats, bars, barBeats(this.signature), next.start);
+      if (at === null) {
+        this.notice('info', `${next.name} starts within ${bars} bar${bars === 1 ? '' : 's'} anyway.`);
+        return;
+      }
+      try {
+        await this.live.call('jump_at', { at, to: next.start });
+      } catch (err) {
+        if (/unknown method/.test((err as Error).message)) {
+          throw new Error('Next section needs the newer Remote Script: choose File → Install Remote Script in Ableton Live…, then restart Live.');
+        }
+        throw err;
+      }
+      this.pendingJump = { songId: song.id, sectionIndex: nextIndex, name: next.name, at, to: next.start };
+      this.emit('state');
+    });
+  }
+
+  /** Cancel a waiting "next section" jump. */
+  cancelJump(): Promise<void> {
+    return this.run(() => this.dropPendingJump());
+  }
+
+  private async dropPendingJump(): Promise<void> {
+    if (!this.pendingJump) return;
+    this.pendingJump = null;
+    this.emit('state');
+    try {
+      await this.live.call('cancel_jump');
+    } catch {
+      // older script: nothing was scheduled there
+    }
+  }
+
   /** Move to a section; keep playing if Live is playing. */
   jumpToSection(songId: string, sectionIndex: number): Promise<void> {
     return this.run(async () => {
+      await this.dropPendingJump();
       const song = this.song(songId);
       const section = this.sectionOf(song, sectionIndex);
       const current = songAt(this.songs, this.position.beats);

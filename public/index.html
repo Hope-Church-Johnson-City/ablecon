@@ -41,6 +41,7 @@
         </div>
         <button id="loopOffBtn" class="ghost small hidden">Loop off</button>
       </div>
+      <button id="nextSectionBtn" class="next-section" disabled>Next section</button>
       <div id="sections" class="sections"></div>
     </section>
 
@@ -76,6 +77,13 @@
           <option value="stop">Stop and get the next song ready</option>
           <option value="next">Go straight into the next song</option>
           <option value="continue">Keep playing the arrangement</option>
+        </select>
+      </label>
+      <label>“Next section” while playing jumps after
+        <select id="jumpBars">
+          <option value="1">1 bar</option>
+          <option value="2">2 bars</option>
+          <option value="4">4 bars</option>
         </select>
       </label>
       <label>Never transpose tracks whose names contain

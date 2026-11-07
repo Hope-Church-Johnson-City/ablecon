@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crossedEnd, endOfSongAction, flowsInto, isTagged, planKey, planTempo, songAt, splitKeyPlan } from '../src/planning.ts';
+import { barBeats, nextSectionJumpPoint, crossedEnd, endOfSongAction, flowsInto, isTagged, planKey, planTempo, songAt, splitKeyPlan } from '../src/planning.ts';
 import type { Position, TrackInfo } from '../src/types.ts';
 
 test('tempo is only sent when set and different', () => {
@@ -128,4 +128,18 @@ test('songAt finds the song under the playhead', () => {
   assert.equal(songAt(songs, 0), songs[0]);
   assert.equal(songAt(songs, 32), null);
   assert.equal(songAt(songs, 71.9), songs[1]);
+});
+
+test('bar length and the next-section jump point', () => {
+  assert.equal(barBeats([4, 4]), 4);
+  assert.equal(barBeats([6, 8]), 3);
+  assert.equal(barBeats([3, 4]), 3);
+  // tapped in bar 2 (beat 5): two bar lines on is beat 12
+  assert.equal(nextSectionJumpPoint(5, 2, 4, 16), 12);
+  // tapped exactly on a bar line: two whole bars
+  assert.equal(nextSectionJumpPoint(8, 2, 4, 32), 16);
+  assert.equal(nextSectionJumpPoint(8, 1, 4, 32), 12);
+  // the next section starts by then anyway
+  assert.equal(nextSectionJumpPoint(13, 2, 4, 16), null);
+  assert.equal(nextSectionJumpPoint(9, 2, 4, 16), null, 'starts exactly at the jump point');
 });

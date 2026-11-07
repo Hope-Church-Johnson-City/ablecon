@@ -35,6 +35,7 @@ export interface SetlistSettings {
   endOfSong: EndOfSong;
   noKeyTag: string; // comma-separated words; tracks whose names contain one are never transposed
   sectionsTrack: string; // name of the track whose clips mark sections
+  jumpBars: number; // how many bar lines "Next section" waits for while playing (1, 2 or 4)
 }
 
 export interface SetlistFile {

@@ -125,6 +125,51 @@ class DispatcherTests(unittest.TestCase):
         self.assertEqual(song.tempo, 68, "automation is back")
         self.assertEqual(request(d, "restore_tempo")["result"], {"reenabled": False}, "nothing to do")
 
+    def test_scheduled_jump_lands_on_time(self):
+        song = demo_song()  # 120 BPM: 2 beats per second
+        d = Dispatcher(song)
+        song.is_playing = True
+        song.current_song_time = 17.0
+        self.assertEqual(request(d, "jump_at", {"at": 24, "to": 48})["result"], {"method": "scheduled"})
+        tick = 0.1  # 0.2 beats per tick at 120 BPM
+        jumped_at = None
+        while song.current_song_time < 40:
+            before = song.current_song_time
+            if handlers.run_scheduled_jump(song, tick):
+                jumped_at = before
+                break
+            song.current_song_time += 0.2
+        self.assertIsNotNone(jumped_at)
+        self.assertLessEqual(jumped_at, 24, "jumps on the last tick before the bar line, never late")
+        self.assertGreater(jumped_at, 23.7)
+        # The target is offset by the same amount, so it lands exactly on time.
+        self.assertAlmostEqual(song.current_song_time, 48 - (24 - jumped_at))
+        self.assertFalse(handlers.run_scheduled_jump(song, tick), "only once")
+
+    def test_scheduled_jump_cancels(self):
+        song = demo_song()
+        d = Dispatcher(song)
+        song.is_playing = True
+        song.current_song_time = 17.0
+        request(d, "jump_at", {"at": 24, "to": 48})
+        song.current_song_time = 8.0  # the user moved the playhead back
+        self.assertFalse(handlers.run_scheduled_jump(song, 0.1))
+        song.current_song_time = 23.99
+        self.assertFalse(handlers.run_scheduled_jump(song, 0.1), "cancelled, so nothing happens later")
+        request(d, "jump_at", {"at": 32, "to": 48})
+        self.assertEqual(request(d, "cancel_jump")["result"], {"cancelled": True})
+        request(d, "jump_at", {"at": 32, "to": 48})
+        song.is_playing = False
+        self.assertFalse(handlers.run_scheduled_jump(song, 0.1), "stopping cancels it")
+
+    def test_jump_at_while_stopped_moves_now(self):
+        song = demo_song()
+        d = Dispatcher(song)
+        self.assertEqual(request(d, "jump_at", {"at": 24, "to": 48})["result"], {"method": "now"})
+        self.assertEqual(song.current_song_time, 48)
+        song.is_playing = True
+        self.assertIn("already", request(d, "jump_at", {"at": 10, "to": 60})["error"])
+
     def test_loop(self):
         request(self.d, "loop", {"start": 48, "length": 32, "enabled": True})
         self.assertEqual((self.song.loop, self.song.loop_start, self.song.loop_length),

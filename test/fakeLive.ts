@@ -30,6 +30,7 @@ export class FakeLive {
   // Song Tempo automation as [beat, bpm] steps. Like Live, setting the tempo
   // overrides it everywhere until restore_tempo re-enables it.
   tempoMap: Array<[number, number]> = [];
+  scheduled: { at: number; to: number } | null = null; // a jump_at waiting for its beat
   overridden = false;
 
   private automatedTempo(beats: number): number | null {
@@ -76,6 +77,12 @@ export class FakeLive {
   pushPosition(): void {
     if (!this.client || this.closed) return;
     this.followAutomation();
+    // Like the script: jump on the last tick before `at`, offset so the target lands on time.
+    const sj = this.scheduled;
+    if (sj && this.set.playing && this.set.beats >= sj.at - 0.2) {
+      this.set.beats = sj.to - (sj.at - this.set.beats);
+      this.scheduled = null;
+    }
     const s = this.set;
     const msg = encodeMessage('/ablcon/pos', [float(s.beats), int(s.playing ? 1 : 0), float(s.tempo), int(s.loop.enabled ? 1 : 0), float(s.loop.start), float(s.loop.length)]);
     this.socket.send(msg, this.client.port, this.client.address);
@@ -123,6 +130,7 @@ export class FakeLive {
       case 'play': s.beats = this.startMarker; s.playing = true; this.autoPush(); return true;
       case 'continue': s.beats = this.stopPosition; s.playing = true; this.autoPush(); return true;
       case 'stop':
+        this.scheduled = null;
         if (s.playing) this.stopPosition = s.beats;
         s.playing = false;
         this.autoPush();
@@ -189,6 +197,21 @@ export class FakeLive {
         if (args.muted) this.muted.add(t.index);
         else this.muted.delete(t.index);
         return { muted: Boolean(args.muted) };
+      }
+      case 'jump_at': {
+        if (this.oldScript) throw new Error("unknown method 'jump_at'");
+        const at = Number(args.at);
+        const to = Number(args.to);
+        if (!s.playing) { s.beats = to; this.scheduled = null; return { method: 'now' }; }
+        if (at <= s.beats) throw new Error('that point has already been played');
+        this.scheduled = { at, to };
+        return { method: 'scheduled' };
+      }
+      case 'cancel_jump': {
+        if (this.oldScript) throw new Error("unknown method 'cancel_jump'");
+        const was = this.scheduled !== null;
+        this.scheduled = null;
+        return { cancelled: was };
       }
       case 'explode':
         throw new Error('boom');
