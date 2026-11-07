@@ -9,8 +9,11 @@
   },
   "scripts": {
     "start": "node src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "app": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --mac",
     "fake-live": "python3 remote_script/fake_live/fake_live_server.py",
-    "demo": "node scripts/demo.ts",
+    "icon": "python3 build/make_icon.py",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
     "test:python": "python3 -m unittest discover -s remote_script/tests",
@@ -22,6 +25,51 @@
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.13",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
     "typescript": "^5.7.2"
+  },
+  "main": "app/main.js",
+  "author": "Jeremy Palacio",
+  "build": {
+    "appId": "local.ablcon.app",
+    "productName": "Ablcon",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "app/**",
+      "dist/**",
+      "public/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "remote_script/Ablcon",
+        "to": "remote_script/Ablcon",
+        "filter": [
+          "*.py"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.music",
+      "icon": "build/icon.png",
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "Ablcon ${version}",
+      "artifactName": "Ablcon-${version}-${arch}.${ext}"
+    }
   }
 }

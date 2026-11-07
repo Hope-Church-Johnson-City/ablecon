@@ -3,3 +3,5 @@ ablcon-setlist.json
 __pycache__/
 *.pyc
 .DS_Store
+dist/
+release/
