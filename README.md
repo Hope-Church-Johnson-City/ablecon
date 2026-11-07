@@ -181,6 +181,14 @@ A song with no section locators still gets its sections from the Sections track,
   visited yet use Live's current tempo; tap through each song once to make the total exact. Tempo
   changes in the middle of a song aren't taken into account.
 
+### Looks
+
+**Settings → Look** changes how the page looks on that device (each phone, tablet or laptop keeps its
+own): **Stage** (dark slate, amber, the default), **Blackout** (pure black, bigger and brighter, for a
+dark stage), **Daylight** (light, for bright rooms), **Sanctuary** (warm browns and gold, serif titles)
+or **Compact** (Stage colours, tighter, fits more on a laptop). **Compare all looks side by side** opens
+live previews of all five. Adding `?look=blackout` (etc.) to the address forces a look without saving it.
+
 ### When a song ends
 
 Ablcon only ever stops at a `STOP` (or `--`) marker. Every other boundary is played straight through:

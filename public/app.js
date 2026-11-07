@@ -501,6 +501,16 @@ $('#settingsBtn').onclick = async () => {
     $('#urls').textContent = `Open on other devices: ${urls.join('  ·  ')}`;
   } catch { /* offline */ }
 };
+function setLook(look) {
+  if (look === 'stage') delete document.documentElement.dataset.look;
+  else document.documentElement.dataset.look = look;
+  try { localStorage.setItem('ablcon.look', look); } catch { /* storage blocked */ }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
+}
+$('#look').value = document.documentElement.dataset.look || 'stage';
+$('#look').onchange = (e) => setLook(e.target.value);
+
 $('#endOfSong').onchange = (e) => send('settings', { settings: { endOfSong: e.target.value } });
 $('#jumpBars').onchange = (e) => send('settings', { settings: { jumpBars: Number(e.target.value) } });
 $('#noKeyTag').onchange = (e) => send('settings', { settings: { noKeyTag: e.target.value } });

@@ -1,0 +1,96 @@
+/* Looks. "Stage" is the default set in app.css; each look below overrides
+   the variables at the top of app.css. Picked per device in Settings, stored
+   in localStorage ("ablcon.look"), or forced with ?look=name in the URL. */
+
+/* Blackout: pure black, larger type and buttons, very bright colours.
+   For a dark stage or booth, or a screen seen from a distance. */
+html[data-look="blackout"] {
+  --bg: #000000;
+  --panel: #0a0a0a;
+  --panel2: #151515;
+  --line: #2b2b2b;
+  --text: #ffffff;
+  --muted: #a3a3a3;
+  --accent: #00d0ff;
+  --go: #00e676;
+  --halt: #ff3b30;
+  --loop: #c08bff;
+  --go-soft: #003d20;
+  --halt-soft: #400b08;
+  --loop-soft: #27124d;
+  --accent-soft: #00323d;
+  --on-accent: #001218;
+  --on-go: #001a0b;
+  --on-halt: #ffffff;
+  --base-size: 17px;
+  --title-size: clamp(30px, 6vw, 54px);
+  --radius: 8px;
+  --r-btn: 8px;
+  --big-pad: 24px;
+  --big-size: 22px;
+  --sec-pad: 18px;
+  --sec-min-h: 70px;
+  --row-pad: 12px;
+}
+
+/* Daylight: light background for rehearsals and bright rooms. */
+html[data-look="daylight"] {
+  --bg: #eef1f4;
+  --panel: #ffffff;
+  --panel2: #f5f7f9;
+  --line: #d3d9e0;
+  --text: #15202b;
+  --muted: #5b6875;
+  --accent: #1f6feb;
+  --go: #12a058;
+  --halt: #d63035;
+  --loop: #8250df;
+  --go-soft: #e2f5ea;
+  --halt-soft: #fde8e8;
+  --loop-soft: #efe7fc;
+  --accent-soft: #e0ebfd;
+  --on-accent: #ffffff;
+  --on-go: #ffffff;
+  --on-halt: #ffffff;
+  color-scheme: light;
+}
+
+/* Sanctuary: warm dark browns, gold and teal, softer shapes, serif song title. */
+html[data-look="sanctuary"] {
+  --bg: #15110d;
+  --panel: #1f1913;
+  --panel2: #2a221a;
+  --line: #3c3127;
+  --text: #f4ebdf;
+  --muted: #b39f89;
+  --accent: #e3b45b;
+  --go: #4bb79a;
+  --halt: #d8654f;
+  --loop: #8fb4da;
+  --go-soft: #1b3a32;
+  --halt-soft: #44231c;
+  --loop-soft: #1f2e3d;
+  --accent-soft: #3c2f17;
+  --on-accent: #201605;
+  --on-go: #06190f;
+  --on-halt: #ffffff;
+  --title-font: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --title-size: clamp(30px, 5.5vw, 48px);
+  --radius: 18px;
+  --r-btn: 14px;
+}
+
+/* Compact: Stage colours, tighter spacing and smaller type, so more fits on
+   a laptop screen next to Live. */
+html[data-look="compact"] {
+  --base-size: 14px;
+  --title-size: clamp(20px, 3vw, 28px);
+  --radius: 8px;
+  --r-btn: 7px;
+  --gap: 10px;
+  --big-pad: 10px;
+  --big-size: 15px;
+  --sec-pad: 8px;
+  --sec-min-h: 40px;
+  --row-pad: 6px;
+}

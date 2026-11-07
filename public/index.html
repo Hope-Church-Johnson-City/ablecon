@@ -7,6 +7,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Ablcon</title>
   <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="themes.css">
+  <script>
+    // Apply the look before the page draws, so it never flashes the default.
+    try {
+      var look = new URLSearchParams(location.search).get('look') || localStorage.getItem('ablcon.look');
+      if (look && look !== 'stage') document.documentElement.dataset.look = look;
+    } catch (e) { /* storage blocked */ }
+  </script>
 </head>
 <body>
   <header class="topbar">
@@ -72,6 +80,16 @@
   <dialog id="settings">
     <form method="dialog" class="settings">
       <h2>Settings</h2>
+      <label>Look (this device only)
+        <select id="look">
+          <option value="stage">Stage: dark slate, amber highlights</option>
+          <option value="blackout">Blackout: pure black, big and bright</option>
+          <option value="daylight">Daylight: light, for bright rooms</option>
+          <option value="sanctuary">Sanctuary: warm browns and gold</option>
+          <option value="compact">Compact: Stage colours, fits more</option>
+        </select>
+      </label>
+      <p class="hint"><a href="looks.html" target="_blank" rel="noopener">Compare all looks side by side</a></p>
       <label>When a song ends
         <select id="endOfSong">
           <option value="stop">Stop and get the next song ready</option>

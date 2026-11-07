@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ablcon looks</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; padding: 20px; background: #0c0f12; color: #e8edf2; font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    p.lead { margin: 0 0 18px; color: #8b9aa8; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 560px), 1fr)); gap: 18px; }
+    .card { background: #151a20; border: 1px solid #2a333d; border-radius: 12px; padding: 12px; }
+    .card.current { border-color: #f2b33d; }
+    .head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+    .head strong { font-size: 17px; }
+    .head span { color: #8b9aa8; font-size: 13px; }
+    .frame { position: relative; width: 100%; aspect-ratio: 1280 / 860; overflow: hidden; border-radius: 8px; border: 1px solid #2a333d; background: #000; }
+    .frame iframe { position: absolute; top: 0; left: 0; width: 1280px; height: 860px; border: 0; transform-origin: 0 0; pointer-events: none; }
+    .card button { margin-top: 10px; font: inherit; color: #e8edf2; background: #202a34; border: 1px solid #2c3844; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+    .card.current button { background: #f2b33d; color: #1a1200; border-color: #f2b33d; }
+  </style>
+</head>
+<body>
+  <h1>Pick a look</h1>
+  <p class="lead">These are live previews of this Ablcon (tapping them does nothing). Each device keeps its own look; you can also change it any time in Settings.</p>
+  <div class="grid" id="grid"></div>
+  <script>
+    const LOOKS = [
+      ['stage', 'Stage', 'Dark slate with amber highlights (the original)'],
+      ['blackout', 'Blackout', 'Pure black, larger type and buttons, very bright colours'],
+      ['daylight', 'Daylight', 'Light, for rehearsals and bright rooms'],
+      ['sanctuary', 'Sanctuary', 'Warm browns, gold and teal, softer shapes'],
+      ['compact', 'Compact', 'Stage colours, tighter, fits more on a laptop'],
+    ];
+    let current = 'stage';
+    try { current = localStorage.getItem('ablcon.look') || 'stage'; } catch (e) { /* storage blocked */ }
+    const grid = document.getElementById('grid');
+    for (const [id, name, about] of LOOKS) {
+      const card = document.createElement('div');
+      card.className = 'card' + (id === current ? ' current' : '');
+      card.innerHTML = `<div class="head"><strong>${name}</strong><span>${about}</span></div>
+        <div class="frame"><iframe src="./?look=${id}" title="${name} preview" tabindex="-1"></iframe></div>
+        <button type="button">${id === current ? 'In use on this device' : 'Use this look'}</button>`;
+      card.querySelector('button').onclick = () => {
+        try { localStorage.setItem('ablcon.look', id); } catch (e) { /* storage blocked */ }
+        location.href = './';
+      };
+      grid.append(card);
+    }
+    // Scale each 1280px-wide preview to fit its card.
+    const fit = () => document.querySelectorAll('.frame').forEach((f) => {
+      f.querySelector('iframe').style.transform = `scale(${f.clientWidth / 1280})`;
+    });
+    addEventListener('resize', fit);
+    fit();
+  </script>
+</body>
+</html>
