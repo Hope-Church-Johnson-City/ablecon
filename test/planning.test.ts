@@ -49,8 +49,7 @@ test('key plan transposes warped audio and Pitch devices, skipping tagged tracks
   assert.equal(plan.clipsInKey, 1);
   const w = plan.warnings.join('\n');
   assert.match(w, /"unwarped" on Keys is not warped/);
-  assert.match(w, /1 clip runs past the end of this song and is transposed as a whole \(on Keys\)/);
-  assert.match(w, /1 clip from before this song carries on into it and was left alone \(on Pad\)/);
+  assert.doesNotMatch(w, /long tail|from before/, 'stem tails crossing a song edge are expected, not warned about');
   assert.match(w, /Bass MIDI has no Pitch device/);
   assert.doesNotMatch(w, /click|talk/);
 });

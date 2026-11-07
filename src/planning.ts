@@ -35,8 +35,6 @@ export function isTagged(track: Pick<TrackInfo, 'name' | 'parents'>, tags: strin
 export function planKey(song: Pick<Song, 'start' | 'end'>, semitones: number, tracks: TrackInfo[], noKeyTag: string, sectionsTrack = ''): KeyPlan {
   const plan: KeyPlan = { semitones, clipOps: [], deviceOps: [], clipsInKey: 0, devicesInKey: 0, warnings: [] };
   const sectionsName = sectionsTrack.trim().toLowerCase();
-  const startsBefore: string[] = []; // track names, summarised into one warning each
-  const runsPast: string[] = [];
   for (const track of tracks) {
     if (track.isGroup || isTagged(track, noKeyTag)) continue;
     if (sectionsName && track.name.trim().toLowerCase() === sectionsName) continue; // marker clips, not music
@@ -47,18 +45,14 @@ export function planKey(song: Pick<Song, 'start' | 'end'>, semitones: number, tr
         if (startsInside) midiClips++;
         continue;
       }
-      if (!startsInside) {
-        if (clip.start < song.start && clip.end > song.start) {
-          startsBefore.push(track.name);
-        }
-        continue;
-      }
+      // Clips are matched to songs by where they start. Stems often have a
+      // tail that runs past the song's end: that clip belongs to the song it
+      // starts in and is transposed as a whole, and the next song leaves it
+      // alone. That's expected, so no warning is given for it.
+      if (!startsInside) continue;
       if (!clip.warping) {
         plan.warnings.push(`"${clip.name}" on ${track.name} is not warped and can't be transposed. Turn on Warp for it.`);
         continue;
-      }
-      if (clip.end > song.end) {
-        runsPast.push(track.name);
       }
       if (clip.pitch === semitones) {
         plan.clipsInKey++;
@@ -84,26 +78,7 @@ export function planKey(song: Pick<Song, 'start' | 'end'>, semitones: number, tr
       }
     }
   }
-  if (startsBefore.length) {
-    const one = startsBefore.length === 1;
-    plan.warnings.push(`${count(startsBefore.length, 'clip')} from before this song ${one ? 'carries' : 'carry'} on into it and ${one ? 'was' : 'were'} left alone (${trackList(startsBefore)}).`);
-  }
-  if (runsPast.length) {
-    const one = runsPast.length === 1;
-    plan.warnings.push(`${count(runsPast.length, 'clip')} ${one ? 'runs' : 'run'} past the end of this song and ${one ? 'is' : 'are'} transposed as a whole (${trackList(runsPast)}).`);
-  }
   return plan;
-}
-
-function count(n: number, word: string): string {
-  return n === 1 ? `1 ${word}` : `${n} ${word}s`;
-}
-
-/** "Drums, Bass, AG and 19 more tracks" */
-function trackList(names: string[]): string {
-  const unique = [...new Set(names)];
-  const shown = unique.slice(0, 3).join(', ');
-  return unique.length > 3 ? `on ${shown} and ${unique.length - 3} more tracks` : `on ${shown}`;
 }
 
 /**

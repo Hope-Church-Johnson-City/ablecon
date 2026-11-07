@@ -215,14 +215,15 @@ To avoid audible glitches Ablcon never changes anything that is currently soundi
   but Pitch devices wait, because they affect the whole track, including what's playing now.
 - Live playing inside that song: everything waits.
 
+A clip belongs to the song it starts in. Stems often run a little past their song's end: such a clip is
+transposed with its own song, and the next song leaves it alone. Ablcon doesn't warn about this.
+
 Anything that has to wait is applied as soon as Live stops. The song shows a **Key waiting** tag until
 then. **Apply** (in Edit mode) applies a song's key on demand, following the same rules.
 
 The ⚠ tag on a song means there's something you should look at, listed under the song in Edit mode:
 
 - an audio clip that isn't warped (Live can't transpose it; turn on **Warp**),
-- clips that start before the song (left alone) or run past its end (transposed as a whole). Multitrack
-  stems often have a short tail like this; it's usually nothing to worry about,
 - a MIDI track with clips in the song but no Pitch device,
 - a change Live refused (for example a track renamed since Ablcon read it; just apply again).
 
