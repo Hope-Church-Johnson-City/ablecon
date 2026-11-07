@@ -27,14 +27,15 @@
   <div class="grid" id="grid"></div>
   <script>
     const LOOKS = [
+      ['live', 'Ableton', "Live's own greys and orange, squarer corners (the default)"],
       ['stage', 'Stage', 'Dark slate with amber highlights (the original)'],
       ['blackout', 'Blackout', 'Pure black, larger type and buttons, very bright colours'],
       ['daylight', 'Daylight', 'Light, for rehearsals and bright rooms'],
       ['sanctuary', 'Sanctuary', 'Warm browns, gold and teal, softer shapes'],
       ['compact', 'Compact', 'Stage colours, tighter, fits more on a laptop'],
     ];
-    let current = 'stage';
-    try { current = localStorage.getItem('ablecon.look') || 'stage'; } catch (e) { /* storage blocked */ }
+    let current = 'live';
+    try { current = localStorage.getItem('ablecon.look') || 'live'; } catch (e) { /* storage blocked */ }
     const grid = document.getElementById('grid');
     for (const [id, name, about] of LOOKS) {
       const card = document.createElement('div');

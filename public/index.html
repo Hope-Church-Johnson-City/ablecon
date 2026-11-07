@@ -17,10 +17,12 @@
         if (old !== null && localStorage.getItem('ablecon.' + k) === null) localStorage.setItem('ablecon.' + k, old);
       });
     } catch (e) { /* storage blocked */ }
+    // Ableton ("live") is the default look on a device that hasn't picked one.
+    var look = 'live';
     try {
-      var look = new URLSearchParams(location.search).get('look') || localStorage.getItem('ablecon.look');
-      if (look && look !== 'stage') document.documentElement.dataset.look = look;
-    } catch (e) { /* storage blocked */ }
+      look = new URLSearchParams(location.search).get('look') || localStorage.getItem('ablecon.look') || 'live';
+    } catch (e) { /* storage blocked: default look */ }
+    if (look !== 'stage') document.documentElement.dataset.look = look;
   </script>
 </head>
 <body>
@@ -90,6 +92,7 @@
       <h2>Settings</h2>
       <label>Look (this device only)
         <select id="look">
+          <option value="live">Ableton: Live's own greys and orange (default)</option>
           <option value="stage">Stage: dark slate, amber highlights</option>
           <option value="blackout">Blackout: pure black, big and bright</option>
           <option value="daylight">Daylight: light, for bright rooms</option>

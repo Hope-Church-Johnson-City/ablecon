@@ -85,7 +85,7 @@ function showWindow() {
     minWidth: 380,
     minHeight: 500,
     title: 'Ablecon',
-    backgroundColor: '#101418',
+    backgroundColor: '#1e1e1e', // the default (Ableton) look's background
     webPreferences: { backgroundThrottling: false, contextIsolation: true, sandbox: true },
   });
   win.loadURL(`http://127.0.0.1:${server.port}/`);

@@ -46,7 +46,8 @@ Ablecon is a setlist and remote control for Ableton Live, used live at church se
   the downbeat is on time, countdown and cancel on the page.
 - Tracks panel: groups fold, current song's group opens (fuzzy name match), Sections hidden, M and S
   buttons per track and group, Clear solos.
-- Section loops, five looks (per device), outdated Remote Script warning, phone layout.
+- Section loops, six looks (per device; **Ableton** is the default), outdated Remote Script warning,
+  phone layout.
 
 ## Layout
 

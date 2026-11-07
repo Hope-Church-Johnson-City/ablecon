@@ -55,6 +55,9 @@ async function main() {
     if (level === 'error' || level === 3) consoleErrors.push(message);
   });
   await win.loadURL(`http://127.0.0.1:${server.port}/`);
+  // Start as a device that has never been used: no saved look or panel settings.
+  await win.webContents.executeJavaScript('localStorage.clear()');
+  await win.loadURL(`http://127.0.0.1:${server.port}/`);
 
   // Runs `body` in the page (it can use the page's own state, position and send).
   const page = (body) => win.webContents.executeJavaScript(`(async () => {
@@ -187,12 +190,19 @@ async function main() {
     return shown || 'Clear solos was not shown';`);
 
   // ---- looks and warnings ---------------------------------------------------------
-  await check('looks can be switched (and back)', `
+  await check('the Ableton look is the default on a new device', `
+    const bg = getComputedStyle(document.body).backgroundColor;
+    return document.documentElement.dataset.look === 'live' && $('#look').value === 'live' && bg === 'rgb(30, 30, 30)' || JSON.stringify({ look: document.documentElement.dataset.look, select: $('#look').value, bg });`);
+
+  await check('looks can be switched, including the original Stage, and back', `
     const sel = $('#look');
     sel.value = 'blackout'; sel.dispatchEvent(new Event('change'));
-    const on = document.documentElement.dataset.look === 'blackout' && getComputedStyle(document.body).backgroundColor === 'rgb(0, 0, 0)';
+    const blackout = document.documentElement.dataset.look === 'blackout' && getComputedStyle(document.body).backgroundColor === 'rgb(0, 0, 0)';
     sel.value = 'stage'; sel.dispatchEvent(new Event('change'));
-    return on && !document.documentElement.dataset.look || 'look did not apply';`);
+    const stage = !document.documentElement.dataset.look && getComputedStyle(document.body).backgroundColor === 'rgb(16, 20, 24)';
+    sel.value = 'live'; sel.dispatchEvent(new Event('change'));
+    const back = document.documentElement.dataset.look === 'live' && localStorage.getItem('ablecon.look') === 'live';
+    return blackout && stage && back || JSON.stringify({ blackout, stage, back });`);
 
   await check('no outdated-Remote-Script warning with the current script', `
     return $('#scriptWarn').classList.contains('hidden') || $('#scriptWarn').textContent;`);

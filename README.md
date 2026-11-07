@@ -197,10 +197,11 @@ A song with no section locators still gets its sections from the Sections track,
 ### Looks
 
 **Settings → Look** changes how the page looks on that device (each phone, tablet or laptop keeps its
-own): **Stage** (dark slate, amber, the default), **Blackout** (pure black, bigger and brighter, for a
+own): **Ableton** (the default: the greys, orange, green, red and yellow of Live's dark theme, with
+squarer corners), **Stage** (dark slate, amber, the original look), **Blackout** (pure black, bigger and brighter, for a
 dark stage), **Daylight** (light, for bright rooms), **Sanctuary** (warm browns and gold, serif titles)
 or **Compact** (Stage colours, tighter, fits more on a laptop). **Compare all looks side by side** opens
-live previews of all five. Adding `?look=blackout` (etc.) to the address forces a look without saving it.
+live previews of all six. A device where a look was already picked keeps it until you change it. Adding `?look=blackout` (etc.) to the address forces a look without saving it.
 
 ### When a song ends
 
