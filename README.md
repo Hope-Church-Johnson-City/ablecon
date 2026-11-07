@@ -346,21 +346,24 @@ Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `t
 
 ## What has not been checked against a real Live
 
-Everything above was tested without Ableton Live, against fakes that model the parts of Live's API
-Ablcon uses. These still need checking in Live 11 and 12 with a real set:
+Most of Ablcon was tested against fakes that model the parts of Live's API it uses. Checked in a real
+Live set so far: the Remote Script loads and connects, locators and the Sections track are read
+correctly, the track list and mutes, and starting playback exactly at a song or section.
 
-- That Live loads the script as written (a plain class with no MIDI ports, not a subclass of Live's
-  `ControlSurface` framework) and calls `update_display()` about every 100 ms to drive it.
-- That changing the song (tempo, playhead, loop, clip transpose, device parameters) from
-  `update_display()` is allowed.
-- The exact Live API names and values used: `cue_points`, `current_song_time`, `song_length`,
-  `Track.arrangement_clips`, `Clip.pitch_coarse`, `Clip.warping`, `Track.group_track`, `is_foldable`, and
-  that the Pitch MIDI effect reports `class_name` `"MidiPitcher"` with a parameter named `"Pitch"`.
-- That `Track.mute` and `Track.muted_via_solo` behave as expected on audio, MIDI and group tracks, and that
-  checking every track's mute state ten times a second costs nothing noticeable in a large set.
-- That **Play** (Live's `continue_playing`) starts from where Ablcon moved the playhead. A first test in
-  Live showed that the plain `start_playing` goes back to the insert marker instead, which is why Ablcon
-  no longer uses it.
+How Ablcon starts playback, learned from testing in Live: moving the playhead while Live is stopped
+changes only the display. Live's Play starts from its start marker, and "continue" starts where
+playback last stopped. So Ablcon's Remote Script moves Live's start marker (`Song.start_time`) as
+well. That also means Live's own space bar starts at the song you picked in Ablcon. With an older
+Remote Script (before 1.1.0), Ablcon starts playback and then jumps, so a moment of the wrong audio can
+be heard; the page asks you to update the script when that happens.
+
+Still to check in Live 11 and 12:
+
+- Changing clip transpose and device parameters, and section loops (tempo and playhead changes work).
+- Setting `Clip.pitch_coarse`, and that the Pitch MIDI effect reports `class_name` `"MidiPitcher"` with a
+  parameter named `"Pitch"`. (Reading locators, arrangement clips, `warping` and groups works.)
+- Muting from Ablcon, `Track.muted_via_solo`, and that checking every track's mute state ten times a
+  second costs nothing noticeable in a large set.
 - How far past a song's end Live plays before Ablcon stops it, and whether that is audible.
 - Running time for songs in time signatures other than x/4 (Ablcon assumes Live's beat counts match its BPM).
 - The Mac app: it was built and launched on Apple Silicon and served the page against the fake Live.

@@ -25,7 +25,8 @@ class AblconSurface(object):
         self._sock = None
         version = None
         try:
-            app = c_instance.application()
+            import Live  # only exists inside Ableton Live
+            app = Live.Application.get_application()
             version = "%s.%s.%s" % (app.get_major_version(), app.get_minor_version(),
                                     app.get_bugfix_version())
         except Exception:
