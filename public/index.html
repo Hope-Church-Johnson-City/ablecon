@@ -60,13 +60,9 @@
           <button id="tracksBtn" class="ghost small" aria-expanded="true">Hide</button>
         </div>
         <div class="tracks-bar">
-          <div class="seg" id="trackMode" role="radiogroup" aria-label="What tapping a track does">
-            <button data-tmode="mute" class="on" role="radio" aria-checked="true">Tap mutes</button>
-            <button data-tmode="solo" role="radio" aria-checked="false">Tap solos</button>
-          </div>
+          <p class="hint" id="tracksHint"><b>M</b> mutes, <b>S</b> solos. Tap a group’s name to open or close it.</p>
           <button id="clearSolosBtn" class="ghost small hidden">Clear solos</button>
         </div>
-        <p class="hint" id="tracksHint">Tap a track to mute or unmute it. Tap a group's name to open or close it.</p>
         <div id="tracks" class="tracks"></div>
       </section>
     </div>

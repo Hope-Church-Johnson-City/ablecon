@@ -151,23 +151,20 @@ A song with no section locators still gets its sections from the Sections track,
   With **Tap loops**, it turns on Live's loop around that section (tap again, or **Loop off**, to stop
   looping). The looping section is highlighted blue.
 - **Edit** shows the reorder arrows (↑ ↓), the tempo box and the key buttons for each song.
-- **Tracks** has a mute button for every track, laid out compactly:
+- **Tracks** gives every track an **M** (mute) and **S** (solo) button, laid out compactly:
   - Tracks outside any group (click, guide…) are at the top. The Sections track is left out, since muting
     it does nothing useful.
-  - Each group folds up to one row: tap its name to open or close it. The row says how many tracks are in
-    it and how many of those are muted, and **Whole group** mutes or unmutes the group itself.
+  - Each group folds up to one row with its own **M** and **S**: tap its name to open or close it. The row
+    says how many tracks are in it and how many of those are muted or soloed.
   - The group for the song that's playing (or ready) opens by itself and is marked **This song**. Ablcon
     matches group names to song titles and forgives small spelling slips ("Kign Of Kings").
     Groups you open or close by hand stay that way on that device.
-  - **Tap mutes / Tap solos** chooses what tapping a track (or **Whole group**) does. Soloed tracks are
-    outlined in yellow with a **Solo** label, and tracks silenced by someone else's solo fade out.
-    Solos add up (soloing a second track keeps the first one soloed); **Clear solos** appears whenever
-    anything is soloed and unsolos everything. While **Tap solos** is on, the panel is outlined in yellow
-    so you notice; reloading the page always goes back to **Tap mutes**. Solo needs Remote Script 1.2.0
-    or newer (**File → Install Remote Script in Ableton Live…**, then restart Live).
-  - Tap a track to mute or unmute it; muted tracks turn red. Mutes take effect immediately, even mid-song,
-    and changes you make in Live show up on every device within a fraction of a second. A faded track is
-    silent only because another track is soloed. **Hide** folds the whole panel away on that device.
+  - **M** turns red when a track is muted, **S** yellow when it's soloed. Solos add up (soloing a second
+    track keeps the first soloed); **Clear solos** appears whenever anything is soloed. A track whose name
+    is faded is silent only because another track is soloed.
+  - Changes take effect immediately, even mid-song, and changes you make in Live show up on every device
+    within a fraction of a second. Solo needs Remote Script 1.2.0 or newer (**File → Install Remote Script
+    in Ableton Live…**, then restart Live). **Hide** folds the whole panel away on that device.
 - **Set** in the top bar is the total running time of every song in the setlist. A song with its own
   tempo in the setlist is timed at that tempo. Otherwise Ablcon uses the tempo Live reported when the
   playhead was last near the song's start, which picks up tempo automation. Songs the playhead hasn't

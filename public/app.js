@@ -255,30 +255,36 @@ function currentGroupName() {
   return group ? group.name : null;
 }
 
-// What tapping a track does. Always starts as "mute" so nobody is left in
-// solo mode by accident after a reload.
-let trackMode = 'mute';
+/** Small M (mute) and S (solo) buttons for one track or group. */
+function msButtons(t) {
+  return el('span', { class: 'ms' },
+    el('button', {
+      class: `m${t.muted ? ' on' : ''}`,
+      'aria-pressed': String(t.muted),
+      'aria-label': `${t.muted ? 'Unmute' : 'Mute'} ${t.name}`,
+      title: `${t.muted ? 'Unmute' : 'Mute'} ${t.name}`,
+      onclick: (e) => { e.stopPropagation(); send('mute', { track: t.index, name: t.name, muted: !t.muted }); },
+    }, 'M'),
+    el('button', {
+      class: `s${t.soloed ? ' on' : ''}`,
+      'aria-pressed': String(!!t.soloed),
+      'aria-label': `${t.soloed ? 'Unsolo' : 'Solo'} ${t.name}`,
+      title: `${t.soloed ? 'Unsolo' : 'Solo'} ${t.name}`,
+      onclick: (e) => { e.stopPropagation(); send('solo', { track: t.index, name: t.name, soloed: !t.soloed }); },
+    }, 'S'),
+  );
+}
 
-function muteChip(t, extraClass = '', label = t.name) {
-  const cls = ['chip', extraClass];
+/** One track: its name with M and S buttons. */
+function trackChip(t) {
+  const cls = ['chip'];
   if (t.muted) cls.push('muted');
-  else if (t.mutedViaSolo && !t.soloed) cls.push('solo-silent');
   if (t.soloed) cls.push('soloed');
-  const states = [];
-  if (t.soloed) states.push(el('span', { class: 'cstate solo' }, 'Solo'));
-  if (t.muted) states.push(el('span', { class: 'cstate' }, 'Muted'));
-  const soloMode = trackMode === 'solo';
-  const title = soloMode
-    ? (t.soloed ? `Unsolo ${t.name}` : `Solo ${t.name}`)
-    : t.muted ? `Unmute ${t.name}` : t.mutedViaSolo ? `${t.name} is silent because another track is soloed. Tap to mute it.` : `Mute ${t.name}`;
-  return el('button', {
-    class: cls.join(' ').trim(),
-    'aria-pressed': String(soloMode ? !!t.soloed : t.muted),
-    title,
-    onclick: () => soloMode
-      ? send('solo', { track: t.index, name: t.name, soloed: !t.soloed })
-      : send('mute', { track: t.index, name: t.name, muted: !t.muted }),
-  }, el('span', { class: 'cname' }, label), states.length ? el('span', { class: 'cstates' }, states) : null);
+  if (!t.muted && !t.soloed && t.mutedViaSolo) cls.push('solo-silent');
+  return el('div', {
+    class: cls.join(' '),
+    title: !t.muted && !t.soloed && t.mutedViaSolo ? `${t.name} is silent because another track is soloed` : t.name,
+  }, el('span', { class: 'cname' }, t.name), msButtons(t));
 }
 
 function countSoloed(node) {
@@ -301,10 +307,6 @@ function renderTracks() {
   tracksRenderedFor = current;
   const anySolo = tracks.some((t) => t.soloed);
   $('#clearSolosBtn').classList.toggle('hidden', !anySolo);
-  $('.mixer').classList.toggle('solo-mode', trackMode === 'solo');
-  $('#tracksHint').textContent = trackMode === 'solo'
-    ? 'Solo mode: tap a track to solo or unsolo it. Switch back to “Tap mutes” when you’re done.'
-    : 'Tap a track to mute or unmute it. Tap a group’s name to open or close it.';
   box.replaceChildren();
   if (tracks.length === 0) {
     box.append(el('p', { class: 'hint' }, state.connected ? 'This Live set has no tracks.' : 'Waiting for Live…'));
@@ -315,7 +317,7 @@ function renderTracks() {
 
   const renderLevel = (nodes, container) => {
     const loose = nodes.filter((n) => !n.track.isGroup && visible(n));
-    if (loose.length) container.append(el('div', { class: 'chips' }, loose.map((n) => muteChip(n.track))));
+    if (loose.length) container.append(el('div', { class: 'chips' }, loose.map((n) => trackChip(n.track))));
     for (const g of nodes.filter((n) => n.track.isGroup)) container.append(groupBlock(g));
   };
 
@@ -339,7 +341,7 @@ function renderTracks() {
           isCurrent ? el('span', { class: 'now' }, 'This song') : null,
           el('span', { class: 'gsum' }, summary.join(' · ')),
         ),
-        muteChip(t, 'group-mute', 'Whole group'),
+        msButtons(t),
       ),
     );
     if (open) {
@@ -448,16 +450,6 @@ $('#nextBtn').onclick = () => {
   if (next) send('cue', { songId: next.songId });
 };
 $('#loopOffBtn').onclick = () => send('loopOff');
-document.querySelectorAll('#trackMode button').forEach((b) => {
-  b.onclick = () => {
-    trackMode = b.dataset.tmode;
-    document.querySelectorAll('#trackMode button').forEach((o) => {
-      o.classList.toggle('on', o === b);
-      o.setAttribute('aria-checked', String(o === b));
-    });
-    renderTracks();
-  };
-});
 $('#clearSolosBtn').onclick = () => send('clearSolos');
 $('#tracksBtn').onclick = () => {
   tracksOpen = !tracksOpen;
