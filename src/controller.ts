@@ -293,6 +293,9 @@ export class Controller extends EventEmitter<ControllerEvents> {
    */
   private noteTempo(song: Song, pos: Position): void {
     if (pos.beats < song.start || pos.beats - song.start > 16) return;
+    // While a song's own tempo overrides the automation, Live's tempo says
+    // nothing about this song's automated tempo.
+    if (this.tempoOverridden) return;
     const entry = this.entry(song.id);
     if (!entry || this.tempoSaving.has(song.id)) return;
     if (entry.seenTempo != null && Math.abs(entry.seenTempo - pos.tempo) < 0.01) return;

@@ -690,3 +690,26 @@ test('the tempo of the song under the playhead is learned when the set is read',
     done();
   }
 });
+
+test("a song's tempo override is not mistaken for another song's automated tempo", async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.tempoMap = [[0, 120], [40, 60]];
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await controller.setTempo('first', 128);
+    await controller.cue('first'); // override: Live is at 128 everywhere
+    const seen = () => controller.file.entries.find((e) => e.songId === 'second')?.seenTempo;
+    // The playhead reaches Second while the override is still active: 128 must not be learned.
+    fake.overridden = true;
+    fake.set.beats = 41;
+    fake.set.tempo = 128;
+    fake.pushPosition();
+    await until(() => controller.position.beats === 41);
+    await until(() => fake.overridden === false); // Ablecon hands tempo back for Second...
+    fake.pushPosition(); // ...and the next report shows the automated 60
+    await until(() => seen() === 60);
+  } finally {
+    done();
+  }
+});
