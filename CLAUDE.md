@@ -3,6 +3,26 @@
 Ablecon is a setlist and remote control for Ableton Live, used live at church services by Jeremy
 (worship tech). A regression can stop a service, so **nothing that already works may break.**
 
+## Git: fork, branch, pull request (from Brant, org owner)
+
+**Never commit or push directly to the church repo** (`Hope-Church-Johnson-City/ablecon`, remote
+`upstream`). All work goes through Jeremy's fork (`jpalacio146/ablecon`, remote `origin`):
+
+1. Start from the latest church main: `git switch main && git pull` (main tracks `upstream/main`).
+2. Make a branch for the change: `git switch -c <short-description>`. Never commit on `main`.
+3. Commit there (the checks below must pass), then push the branch to the fork:
+   `git push -u origin <branch>`.
+4. Open a pull request from the fork into the church repo:
+   `gh pr create --repo Hope-Church-Johnson-City/ablecon --base main --head jpalacio146:<branch>`.
+5. Once it's reviewed (or Jeremy says to), merge the pull request on GitHub:
+   `gh pr merge <number> --repo Hope-Church-Johnson-City/ablecon --merge --delete-branch`.
+6. Bring this Mac and the fork up to date: `git switch main && git pull && git push origin main`.
+
+Enforced on this Mac: `.githooks/pre-commit` refuses commits on `main`/`master`;
+`.githooks/pre-push` refuses any push to the church repo; and `upstream`'s push URL is disabled.
+Don't work around these (no `--no-verify`, no re-enabling the push URL). Push to GitHub only when
+Jeremy asks; otherwise commit on the branch locally and say it's ready for a pull request.
+
 ## Every change
 
 1. **`npm run check` must pass before anything is committed.** It runs the type check, the server

@@ -1,0 +1,14 @@
+#!/bin/sh
+# The church repo (Hope-Church-Johnson-City/ablecon) only changes through
+# pull requests from the fork. Refuse any direct push to it, whatever the
+# remote is called. Pushes go to the fork: git push origin <branch>
+remote_name="$1"
+remote_url="$2"
+case "$remote_url" in
+  *Hope-Church-Johnson-City/ablecon*|*DISABLED*)
+    echo "Push refused: never push directly to Hope-Church-Johnson-City/ablecon."
+    echo "Push your branch to the fork (git push origin <branch>) and open a pull request."
+    exit 1
+    ;;
+esac
+exit 0
