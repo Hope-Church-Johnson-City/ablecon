@@ -3,6 +3,13 @@
 # Script tests and the page check). Enabled with:
 #   git config core.hooksPath .githooks
 # Bypass only in an emergency: git commit --no-verify
+# Work happens on branches in the fork; main only changes through merged pull requests.
+branch=$(git symbolic-ref --short -q HEAD)
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  echo "Commit refused: don't commit directly to $branch."
+  echo "Start a branch first:  git switch -c <short-description>"
+  exit 1
+fi
 echo "Running npm run check before committing..."
 npm run check --silent >/tmp/ablecon-check.log 2>&1
 status=$?

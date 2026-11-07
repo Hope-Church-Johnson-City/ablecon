@@ -320,6 +320,22 @@ use it on a network you trust.
 
 ---
 
+## Making changes
+
+The church repo, [Hope-Church-Johnson-City/ablecon](https://github.com/Hope-Church-Johnson-City/ablecon),
+only changes through pull requests. Work in your own fork, on a branch:
+
+```bash
+gh repo fork Hope-Church-Johnson-City/ablecon --clone   # once
+git switch -c my-change                                  # never commit on main
+npm run check                                            # must pass (the commit hook runs it too)
+git push -u origin my-change
+gh pr create --repo Hope-Church-Johnson-City/ablecon --base main
+```
+
+The hooks in `.githooks/` (enabled by `npm install`) refuse commits on `main` and any direct push to
+the church repo.
+
 ## Running from source
 
 Needs Node.js 22.18 or newer (Node runs the TypeScript directly) and Python 3 for the tests.
