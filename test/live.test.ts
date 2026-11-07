@@ -31,6 +31,7 @@ async function setup(opts: { timeoutMs?: number } = {}) {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'ablecon-'));
   const setlistPath = path.join(dir, 'setlist.json');
   const controller = new Controller(client, setlistPath);
+  controller.scanSettleMs = 5;
   await controller.init();
   const done = () => {
     client.stop();
@@ -709,6 +710,61 @@ test("a song's tempo override is not mistaken for another song's automated tempo
     await until(() => fake.overridden === false); // Ablecon hands tempo back for Second...
     fake.pushPosition(); // ...and the next report shows the automated 60
     await until(() => seen() === 60);
+  } finally {
+    done();
+  }
+});
+
+test("each song's tempo is read at its marker, without playing, and the playhead goes back", async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.tempoMap = [[0, 120], [40, 60]]; // automation: First 120, Second 60
+    fake.set.beats = 20;
+    await client.start();
+    await until(() => controller.snapshot().rows.length === 2 && controller.snapshot().rows.every((r) => r.seenTempo != null));
+    assert.deepEqual(controller.snapshot().rows.map((r) => [r.name, r.seenTempo]), [['First', 120], ['Second', 60]]);
+    assert.equal(fake.set.beats, 20, 'playhead put back');
+    assert.equal(fake.startMarker, 20, "Live's start marker put back too");
+    assert.equal(fake.set.playing, false, 'nothing played');
+    assert.equal(controller.position.tempo, 120, "Ablecon shows Live's tempo where the playhead is, not the last song read");
+    assert.equal(controller.snapshot().totalSeconds, 32 * 0.5 + 32 * 1);
+  } finally {
+    done();
+  }
+});
+
+test('tempos are read once Live stops if it was playing', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.tempoMap = [[0, 120], [40, 60]];
+    fake.set.playing = true;
+    fake.set.beats = 4;
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(fake.methods().filter((m) => m === 'jump').length, 0, 'no playhead moves while playing');
+    fake.set.playing = false;
+    fake.pushPosition();
+    await until(() => controller.snapshot().rows.length === 2 && controller.snapshot().rows.every((r) => r.seenTempo != null));
+    assert.equal(controller.snapshot().rows[1].seenTempo, 60);
+  } finally {
+    done();
+  }
+});
+
+test("a song's own tempo is put back after reading the automation", async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.tempoMap = [[0, 120], [40, 60]];
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await controller.setTempo('first', 100);
+    await controller.cue('first');
+    assert.equal(fake.set.tempo, 100);
+    await controller.refresh(); // e.g. a locator was edited: tempos are read again
+    assert.equal(controller.snapshot().rows[0].seenTempo, 120, 'the automated tempo, not the override');
+    assert.equal(fake.set.tempo, 100, "First's own tempo is back");
+    assert.equal(fake.set.beats, 0);
   } finally {
     done();
   }

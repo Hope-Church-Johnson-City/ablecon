@@ -48,6 +48,10 @@ export class Controller extends EventEmitter<ControllerEvents> {
   private flushing = false;
   private tempoSaving = new Set<string>();
   private oldScriptWarned = false;
+  private scanning = false; // reading tempos at the markers
+  private scanWanted = false; // a tempo read is waiting for Live to stop
+  /** How long Live needs after moving the playhead before its tempo shows the automation. */
+  scanSettleMs = 250;
   signature: [number, number] = [4, 4];
   /** A "next section" jump waiting for its bar line, if any. */
   pendingJump: { songId: string; sectionIndex: number; name: string; at: number; to: number } | null = null;
@@ -165,9 +169,8 @@ export class Controller extends EventEmitter<ControllerEvents> {
         await this.save(store.pruneMissing(store.withSongSettings(file, this.store), this.songs));
         if (this.cuedId && !this.songs.some((s) => s.id === this.cuedId)) this.cuedId = null;
       }
-      // Learn the tempo of the song the playhead is already in (it may not move for a while).
-      const here = songAt(this.songs, this.position.beats);
-      if (here) this.noteTempo(here, this.position);
+      // Read each song's tempo at its marker (from the set's tempo automation).
+      await this.scanTempos();
       await this.refreshTracks();
       this.emit('state');
     });
@@ -237,9 +240,17 @@ export class Controller extends EventEmitter<ControllerEvents> {
   }
 
   private onPosition(pos: Position): void {
+    if (this.scanning) {
+      // Ablecon itself is moving the playhead to read tempos: nothing to react to.
+      this.position = pos;
+      return;
+    }
     const prev = this.position;
     this.position = pos;
     this.emit('position', pos);
+    if (!pos.playing && prev.playing && this.scanWanted) {
+      void this.run(() => this.scanTempos()).catch((err) => this.notice('error', err.message));
+    }
     const pj = this.pendingJump;
     if (pj) {
       const arrived = pos.beats >= pj.to - 0.5 && pos.beats < pj.to + 16;
@@ -284,6 +295,58 @@ export class Controller extends EventEmitter<ControllerEvents> {
         .catch((err) => this.notice('error', err.message))
         .finally(() => (this.flushing = false));
     }
+  }
+
+  /**
+   * Read every song's tempo at its marker. Live only reports the tempo at the
+   * playhead, so while Live is stopped Ablecon moves the playhead to each
+   * song's start, reads the tempo Live shows there (Song Tempo automation),
+   * then puts the playhead back. Nothing plays. If Live is playing, this
+   * waits until it stops. Runs inside the command queue.
+   */
+  private async scanTempos(): Promise<void> {
+    if (this.songs.length === 0) return;
+    if (this.position.playing) {
+      this.scanWanted = true;
+      return;
+    }
+    this.scanWanted = false;
+    const origin = this.position.beats;
+    this.scanning = true;
+    let file = this.file;
+    let complete = true;
+    try {
+      // An override would make every song read as that one tempo.
+      if (this.tempoOverridden) await this.restoreTempo();
+      for (const song of this.songs) {
+        await this.live.call('jump', { beats: song.start });
+        await new Promise((r) => setTimeout(r, this.scanSettleMs));
+        const st = await this.live.call<Position>('state');
+        if (st.playing) {
+          complete = false; // someone pressed Play in Live: stop here
+          break;
+        }
+        file = setlist.setSeenTempo(file, song.id, st.tempo);
+      }
+      if (complete) {
+        await this.live.call('jump', { beats: origin });
+        await new Promise((r) => setTimeout(r, this.scanSettleMs));
+        // Back where it started: take Live's tempo there, not the last song's.
+        const st = await this.live.call<Position>('state');
+        this.position = { ...this.position, ...st, beats: origin };
+      }
+    } finally {
+      this.scanning = false;
+    }
+    if (!complete) {
+      this.scanWanted = true;
+      return;
+    }
+    this.emit('position', this.position);
+    await this.save(file);
+    // Give the song at the playhead its own tempo again, if it has one.
+    const here = songAt(this.songs, origin) ?? (this.cuedId ? this.songs.find((s) => s.id === this.cuedId) ?? null : null);
+    if (here) await this.applyTempo(here.id);
   }
 
   /**

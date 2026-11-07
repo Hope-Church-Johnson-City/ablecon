@@ -168,9 +168,12 @@ A song with no section locators still gets its sections from the Sections track,
   inside Live (Remote Script 1.4.1 or newer): the jump happens on Live's last update before the bar
   line, into the matching point just before the new section, so its downbeat lands on time.
 - Each song in the setlist shows its **key** and then its **tempo**. A tempo you set in Ablecon is
-  highlighted; a grey one is the tempo Live plays the song at (from your Song Tempo automation), which
-  Ablecon learns the first time the playhead is at that song. "– BPM" means it hasn't been there yet:
-  tap or play the song once.
+  highlighted; a grey one is the tempo at the song's locator in your Song Tempo automation. Live only
+  reports the tempo at the playhead, so when Ablecon connects, when you edit locators, or when you open
+  another set, it quickly moves the playhead to each song's locator (about a quarter of a second each),
+  reads the tempo, and puts the playhead back. Nothing plays, and it waits if Live is playing. After
+  changing tempo automation, **Settings → Re-read locators** reads the tempos again. (Press Play in Live
+  during those few seconds and playback starts at whichever song was being read.)
 - **Edit** shows the reorder arrows (↑ ↓), the tempo box and the key buttons for each song.
 - **Tracks** gives every track an **M** (mute) and **S** (solo) button, laid out compactly:
   - Tracks outside any group (click, guide…) are at the top. The Sections track is left out, since muting
@@ -187,10 +190,9 @@ A song with no section locators still gets its sections from the Sections track,
     within a fraction of a second. Solo needs Remote Script 1.2.0 or newer (**File → Install Remote Script
     in Ableton Live…**, then restart Live). **Hide** folds the whole panel away on that device.
 - **Set** in the top bar is the total running time of every song in the setlist. A song with its own
-  tempo in the setlist is timed at that tempo. Otherwise Ablecon uses the tempo Live reported when the
-  playhead was last near the song's start, which picks up tempo automation. Songs the playhead hasn't
-  visited yet use Live's current tempo; tap through each song once to make the total exact. Tempo
-  changes in the middle of a song aren't taken into account.
+  tempo in the setlist is timed at that tempo. Otherwise Ablecon uses the tempo at the song's locator
+  in the tempo automation (see above). Tempo changes in the middle of a song aren't
+  taken into account.
 
 ### Looks
 
