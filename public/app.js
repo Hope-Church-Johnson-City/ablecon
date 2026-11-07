@@ -20,6 +20,8 @@ let nextId = 1;
 let editing = false;
 let tapMode = 'jump';
 let renderDeferred = false;
+let tracksOpen = true;
+try { tracksOpen = localStorage.getItem('ablcon.tracksOpen') !== 'no'; } catch { /* storage blocked */ }
 
 // ---- formatting --------------------------------------------------------------
 
@@ -113,6 +115,7 @@ function render() {
     renderSetlist();
   }
   renderWarnings();
+  renderTracks();
   renderSections();
   renderPosition();
 }
@@ -188,6 +191,38 @@ function renderWarnings() {
   const list = state.warnings || [];
   box.classList.toggle('hidden', list.length === 0);
   box.replaceChildren(el('strong', {}, 'Locator notes'), el('ul', {}, list.map((w) => el('li', {}, w))));
+}
+
+function renderTracks() {
+  const box = $('#tracks');
+  const tracks = state.tracks || [];
+  $('#tracksBtn').textContent = tracksOpen ? 'Hide' : 'Show';
+  $('#tracksBtn').setAttribute('aria-expanded', String(tracksOpen));
+  box.classList.toggle('collapsed', !tracksOpen);
+  $('.mixer').classList.toggle('collapsed', !tracksOpen);
+  box.replaceChildren();
+  if (tracks.length === 0) {
+    box.append(el('p', { class: 'hint' }, state.connected ? 'This Live set has no tracks.' : 'Waiting for Live…'));
+    return;
+  }
+  for (const t of tracks) {
+    const cls = ['track'];
+    if (t.isGroup) cls.push('group');
+    if (t.muted) cls.push('muted');
+    const btn = el('button', {
+      class: cls.join(' '),
+      'aria-pressed': String(t.muted),
+      title: t.muted ? `Unmute ${t.name}` : `Mute ${t.name}`,
+      onclick: () => send('mute', { track: t.index, name: t.name, muted: !t.muted }),
+    },
+      el('span', { class: 'tname' }, t.name),
+      !t.muted && t.mutedViaSolo ? el('span', { class: 'why' }, 'silent: another track is soloed') : null,
+      el('span', { class: 'state' }, t.muted ? 'Muted' : 'On'),
+    );
+    btn.style.marginLeft = `${t.parents.length * 18}px`;
+    btn.style.width = `calc(100% - ${t.parents.length * 18}px)`;
+    box.append(btn);
+  }
 }
 
 let sectionsFor = null;
@@ -269,6 +304,11 @@ $('#nextBtn').onclick = () => {
   if (next) send('cue', { songId: next.songId });
 };
 $('#loopOffBtn').onclick = () => send('loopOff');
+$('#tracksBtn').onclick = () => {
+  tracksOpen = !tracksOpen;
+  try { localStorage.setItem('ablcon.tracksOpen', tracksOpen ? 'yes' : 'no'); } catch { /* storage blocked */ }
+  renderTracks();
+};
 $('#editBtn').onclick = () => {
   editing = !editing;
   $('#editBtn').textContent = editing ? 'Done' : 'Edit';

@@ -85,3 +85,13 @@ export interface TrackInfo {
 export type KeyOp =
   | { kind: 'clip'; track: number; trackName: string; clip: number; start: number; pitch: number }
   | { kind: 'param'; track: number; trackName: string; device: number; param: number; value: number };
+
+// What the Remote Script's "mixer" method reports for each track.
+export interface MixerTrack {
+  index: number;
+  name: string;
+  parents: string[]; // enclosing group names, innermost first
+  isGroup: boolean;
+  muted: boolean;
+  mutedViaSolo: boolean; // silent because another track is soloed
+}

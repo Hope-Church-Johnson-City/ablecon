@@ -167,6 +167,35 @@ def tracks(song, args):
     return {"tracks": result}
 
 
+def mixer(song, args):
+    """Every track with its mute state, in Live's order (grouped tracks included)."""
+    result = []
+    for index, track in enumerate(song.tracks):
+        result.append({
+            "index": index,
+            "name": track.name,
+            "parents": _parent_names(track),
+            "isGroup": bool(_safe(lambda: track.is_foldable, False)),
+            "muted": bool(track.mute),
+            "mutedViaSolo": bool(_safe(lambda: track.muted_via_solo, False)),
+        })
+    return {"tracks": result}
+
+
+def mixer_signature(song):
+    """Cheap fingerprint of track names and mute states, to notice changes in Live."""
+    return tuple((t.name, bool(t.mute), bool(_safe(lambda: t.muted_via_solo, False)))
+                 for t in song.tracks)
+
+
+def mute(song, args):
+    track = _track_checked(song, args)
+    if "muted" not in args:
+        raise RequestError("missing argument 'muted'")
+    track.mute = bool(args["muted"])
+    return {"muted": bool(track.mute)}
+
+
 def _track_checked(song, op):
     all_tracks = list(song.tracks)
     index = int(op.get("track", -1))
@@ -239,4 +268,6 @@ HANDLERS = {
     "loop": loop,
     "tracks": tracks,
     "apply": apply,
+    "mixer": mixer,
+    "mute": mute,
 }

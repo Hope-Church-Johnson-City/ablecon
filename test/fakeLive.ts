@@ -19,7 +19,9 @@ export class FakeLive {
   set: FakeSet;
   calls: Array<{ method: string; args: Record<string, unknown> }> = [];
   chunkSize = 6000;
+  muted = new Set<number>(); // track indexes muted in the fake mixer
   silent = false; // when true, requests are ignored (simulates Live not running)
+  ignore = new Set<string>(); // methods to leave unanswered
   private socket = dgram.createSocket('udp4');
   private client: { address: string; port: number } | null = null;
   port = 0;
@@ -63,6 +65,7 @@ export class FakeLive {
     this.client = { address: rinfo.address, port: rinfo.port };
     const [id, method, rawArgs] = argValues(msg) as [number, string, string];
     const args = JSON.parse(rawArgs || '{}') as Record<string, unknown>;
+    if (this.ignore.has(method)) return;
     this.calls.push({ method, args });
     let body: unknown;
     try {
@@ -100,6 +103,15 @@ export class FakeLive {
       }
       case 'apply':
         return { results: (args.ops as KeyOp[]).map((op) => this.apply(op)) };
+      case 'mixer':
+        return { tracks: s.tracks.map((t) => ({ index: t.index, name: t.name, parents: t.parents, isGroup: t.isGroup, muted: this.muted.has(t.index), mutedViaSolo: false })) };
+      case 'mute': {
+        const t = s.tracks[Number(args.track)];
+        if (!t || t.name !== args.trackName) throw new Error('track was renamed or moved');
+        if (args.muted) this.muted.add(t.index);
+        else this.muted.delete(t.index);
+        return { muted: Boolean(args.muted) };
+      }
       case 'explode':
         throw new Error('boom');
       default:

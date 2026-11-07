@@ -70,6 +70,7 @@ main { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); ga
 .sections button.looping { background: #12304d; border-color: var(--loop); }
 .sections .empty { color: var(--muted); font-size: 14px; }
 
+.side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .list-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .setlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .song { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; }
@@ -110,3 +111,15 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .toast { background: var(--panel2); border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
 .toast.warn { border-left-color: var(--accent); }
 .toast.error { border-left-color: var(--halt); }
+
+.mixer .hint { margin-bottom: 10px; }
+.tracks { display: flex; flex-direction: column; gap: 6px; }
+.tracks.collapsed, .mixer.collapsed .hint { display: none; }
+.track { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; }
+.track .tname { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.track.group .tname::before { content: "▾ "; color: var(--muted); }
+.track .state { font-size: 12px; border-radius: 6px; padding: 2px 8px; border: 1px solid var(--go); color: var(--go); }
+.track.muted { background: var(--bg); }
+.track.muted .tname { color: var(--muted); text-decoration: line-through; }
+.track.muted .state { border-color: var(--halt); color: #fff; background: var(--halt); }
+.track .why { font-size: 12px; color: var(--muted); }

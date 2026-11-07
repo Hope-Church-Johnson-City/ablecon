@@ -64,6 +64,8 @@ class Track(object):
         self.has_audio_input = not midi
         self.is_foldable = foldable
         self.group_track = group
+        self.mute = False
+        self.muted_via_solo = False
         self._clips = clips or []
         self.devices = devices or []
 

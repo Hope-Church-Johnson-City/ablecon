@@ -4,7 +4,7 @@ Run an Ableton Live set like a setlist, from any phone, tablet or laptop on your
 
 Ablcon reads the locators in your arrangement, turns them into songs and sections, and gives you a
 control page with transport buttons, a reorderable setlist, section jump and loop buttons, the running
-time of the set, and a tempo and key for each song. Changing the setlist order never edits your Live set.
+time of the set, a tempo and key for each song, and mute buttons for your tracks. Changing the setlist order never edits your Live set.
 
 > **About the name:** "Ablcon" is a working name. Names that start with "Abl" are close to Ableton's
 > trademark, so pick a different name before you release this publicly.
@@ -123,6 +123,11 @@ Details:
   With **Tap loops**, it turns on Live's loop around that section (tap again, or **Loop off**, to stop
   looping). The looping section is highlighted blue.
 - **Edit** shows the reorder arrows (↑ ↓), the tempo box and the key buttons for each song.
+- **Tracks** lists every track in the set, with tracks inside a group indented under it. Tap a track to
+  mute or unmute it; muted tracks are struck through with a red **Muted** label. Muting a group silences
+  everything in it, just as in Live. Mutes take effect immediately, even mid-song, and changes you make in
+  Live show up on every device within a fraction of a second. A track that is silent only because
+  another track is soloed says so. **Hide** folds the list away on that device.
 - **Set** in the top bar is the total running time of every song in the setlist. Songs without their own
   tempo are timed at Live's current tempo. Tempo automation inside a song isn't taken into account.
 
@@ -261,10 +266,11 @@ OSC messages over UDP on 127.0.0.1. The script listens on port 11100 and replies
 | app → Live | `/ablcon/req` | `id:int`, `method:string`, `args:JSON string` |
 | Live → app | `/ablcon/res` | `id:int`, `part:int`, `parts:int`, `chunk:string` (joined chunks are `{"ok":true,"result":…}` or `{"ok":false,"error":…}`) |
 | Live → app | `/ablcon/pos` | `beats:float`, `playing:int`, `tempo:float`, `loop:int`, `loopStart:float`, `loopLength:float` (sent when it changes) |
-| Live → app | `/ablcon/changed` | `"cues"` when locators change |
+| Live → app | `/ablcon/changed` | `"cues"` when locators change, `"tracks"` when track names or mutes change |
 
 Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `tempo {bpm}`,
-`loop {start, length, enabled}`, `tracks {start, end}`, `apply {ops}`. Replies are split into chunks of
+`loop {start, length, enabled}`, `tracks {start, end}`, `apply {ops}`, `mixer`,
+`mute {track, trackName, muted}`. Replies are split into chunks of
 6000 ASCII characters to stay under macOS's 9216-byte UDP datagram limit.
 
 ### Tests
@@ -276,10 +282,12 @@ Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `t
 - **Setlist**: matching to Live, reordering, missing songs, tempo/key validation, durations, file round-trip.
 - **Tempo and key planning**: `[nokey]` tags (including on groups), warped/unwarped clips, clips crossing
   song edges, Pitch devices and their range, what may change while playing, end-of-song detection.
+- **Track mutes**: listing tracks, muting and unmuting, refusing a track that was renamed or moved,
+  picking up mutes made in Live, and mutes not waiting behind a slow transport or key command.
 - **Against a fake Live over real UDP**: request/response, chunked replies, timeouts, position pushes,
   cueing, queued songs while playing, stop at song end, section loops.
 - **End to end with the real Remote Script handlers** running in Python against a fake Live set.
-- **Remote Script** (Python): request handling, track/clip/device reporting, applying changes, chunking.
+- **Remote Script** (Python): request handling, track/clip/device reporting, applying changes, mutes, chunking.
 
 ---
 
@@ -295,6 +303,8 @@ Ablcon uses. These still need checking in Live 11 and 12 with a real set:
 - The exact Live API names and values used: `cue_points`, `current_song_time`, `song_length`,
   `Track.arrangement_clips`, `Clip.pitch_coarse`, `Clip.warping`, `Track.group_track`, `is_foldable`, and
   that the Pitch MIDI effect reports `class_name` `"MidiPitcher"` with a parameter named `"Pitch"`.
+- That `Track.mute` and `Track.muted_via_solo` behave as expected on audio, MIDI and group tracks, and that
+  checking every track's mute state ten times a second costs nothing noticeable in a large set.
 - That moving the playhead while stopped and then pressing Play starts from that point.
 - How far past a song's end Live plays before Ablcon stops it, and whether that is audible.
 - Running time for songs in time signatures other than x/4 (Ablcon assumes Live's beat counts match its BPM).

@@ -5,7 +5,7 @@ import { EventEmitter } from 'node:events';
 import { parseLocators } from './locators.ts';
 import { endOfSongAction, planKey, planTempo, songAt, splitKeyPlan } from './planning.ts';
 import * as setlist from './setlist.ts';
-import type { Cue, KeyOp, Position, SetlistFile, SetlistSettings, Song, TrackInfo } from './types.ts';
+import type { Cue, KeyOp, MixerTrack, Position, SetlistFile, SetlistSettings, Song, TrackInfo } from './types.ts';
 
 /** The parts of LiveClient the controller uses (so tests can pass a stub). */
 export interface LiveLink extends EventEmitter {
@@ -45,6 +45,8 @@ export class Controller extends EventEmitter<ControllerEvents> {
   keyStatus = new Map<string, KeyStatus>();
   private pendingKeys = new Set<string>();
   private flushing = false;
+  tracks: MixerTrack[] = [];
+  private mixerRead = 0; // newest track-list read; older replies are dropped
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(live: LiveLink, setlistPath: string) {
@@ -57,6 +59,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
     });
     live.on('changed', (what: string) => {
       if (what === 'cues') void this.refresh().catch(() => {});
+      if (what === 'tracks') void this.refreshTracks().catch(() => {});
     });
     live.on('position', (pos: Position) => this.onPosition(pos));
   }
@@ -102,6 +105,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
       rows: rows.map((r) => ({ ...r, key: this.keyStatus.get(r.songId) ?? null })),
       totalSeconds,
       warnings: this.parseWarnings,
+      tracks: this.tracks,
       settings: this.file.settings,
       cuedId: this.cuedId,
       position: this.position,
@@ -132,8 +136,34 @@ export class Controller extends EventEmitter<ControllerEvents> {
       const { file, changed } = setlist.reconcile(this.file, this.songs);
       if (changed) await this.save(file);
       else this.file = file;
+      await this.refreshTracks();
       this.emit('state');
     });
+  }
+
+  /**
+   * Re-read the track list and mute states. Mixer work skips the command
+   * queue on purpose: a mute must not wait behind a slow key change.
+   */
+  async refreshTracks(): Promise<void> {
+    const read = ++this.mixerRead;
+    const { tracks } = await this.live.call<{ tracks: MixerTrack[] }>('mixer');
+    if (read !== this.mixerRead) return;
+    this.tracks = tracks;
+    this.emit('state');
+  }
+
+  /** Mute or unmute one track. `name` guards against the track list having changed. */
+  async setMute(index: number, name: string, muted: boolean): Promise<void> {
+    const track = this.tracks.find((t) => t.index === index);
+    if (!track || track.name !== name) {
+      void this.refreshTracks().catch(() => {});
+      throw new Error(`Track "${name}" has moved or been renamed in Live; try again.`);
+    }
+    await this.live.call('mute', { track: index, trackName: name, muted });
+    this.mixerRead++; // a read already in flight would be stale now
+    this.tracks = this.tracks.map((t) => (t.index === index ? { ...t, muted } : t));
+    this.emit('state');
   }
 
   private onPosition(pos: Position): void {

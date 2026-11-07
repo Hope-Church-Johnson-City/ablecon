@@ -4,7 +4,7 @@ Requests  (server -> Live):  /ablcon/req  <id:i> <method:s> <args-json:s>
 Replies   (Live -> server):  /ablcon/res  <id:i> <part:i> <parts:i> <json-chunk:s>
 Pushes    (Live -> server):  /ablcon/pos  <beats:f> <playing:i> <tempo:f>
                                           <loop:i> <loopStart:f> <loopLength:f>
-                             /ablcon/changed <what:s>
+                             /ablcon/changed <what:s>   ("cues" or "tracks")
 
 A reply body is JSON: {"ok": true, "result": ...} or {"ok": false, "error": "..."}.
 It is ASCII-only (non-ASCII is \\u-escaped) and split into chunks so every

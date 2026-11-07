@@ -44,14 +44,25 @@
       <div id="sections" class="sections"></div>
     </section>
 
-    <section class="list">
-      <div class="list-head">
-        <h2>Setlist</h2>
-        <button id="editBtn" class="ghost small">Edit</button>
-      </div>
-      <ol id="setlist" class="setlist"></ol>
-      <div id="warnings" class="warnings hidden"></div>
-    </section>
+    <div class="side">
+      <section class="list">
+        <div class="list-head">
+          <h2>Setlist</h2>
+          <button id="editBtn" class="ghost small">Edit</button>
+        </div>
+        <ol id="setlist" class="setlist"></ol>
+        <div id="warnings" class="warnings hidden"></div>
+      </section>
+
+      <section class="list mixer">
+        <div class="list-head">
+          <h2>Tracks</h2>
+          <button id="tracksBtn" class="ghost small" aria-expanded="true">Hide</button>
+        </div>
+        <p class="hint" id="tracksHint">Tap a track to mute or unmute it.</p>
+        <div id="tracks" class="tracks"></div>
+      </section>
+    </div>
   </main>
 
   <dialog id="settings">

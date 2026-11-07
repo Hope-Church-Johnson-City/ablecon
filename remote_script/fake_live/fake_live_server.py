@@ -37,6 +37,7 @@ def main():
     client = None
     last_pos = None
     last_cues = handlers.cue_signature(song)
+    last_mixer = handlers.mixer_signature(song)
     last = time.monotonic()
     while True:
         try:
@@ -55,6 +56,10 @@ def main():
             if pos != last_pos:
                 last_pos = pos
                 sock.sendto(position_message(song), client)
+            mix = handlers.mixer_signature(song)
+            if mix != last_mixer:
+                last_mixer = mix
+                sock.sendto(changed_message("tracks"), client)
             sig = handlers.cue_signature(song)
             if sig != last_cues:
                 last_cues = sig

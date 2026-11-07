@@ -116,6 +116,22 @@ class DispatcherTests(unittest.TestCase):
         self.assertEqual(self.song.tracks[5].devices[0].parameters[1].value, 2)
         self.assertEqual(self.song.tracks[3].arrangement_clips[0].pitch_coarse, 0)
 
+    def test_mixer_and_mute(self):
+        tracks = request(self.d, "mixer")["result"]["tracks"]
+        self.assertEqual(len(tracks), 6)
+        self.assertEqual(tracks[3], {"index": 3, "name": "Keys", "parents": ["Stems"], "isGroup": False,
+                                     "muted": False, "mutedViaSolo": False})
+        before = handlers.mixer_signature(self.song)
+        res = request(self.d, "mute", {"track": 3, "trackName": "Keys", "muted": True})
+        self.assertEqual(res["result"], {"muted": True})
+        self.assertTrue(self.song.tracks[3].mute)
+        self.assertNotEqual(handlers.mixer_signature(self.song), before)
+        request(self.d, "mute", {"track": 3, "trackName": "Keys", "muted": False})
+        self.assertFalse(self.song.tracks[3].mute)
+        self.assertIn("renamed", request(self.d, "mute", {"track": 3, "trackName": "Pad", "muted": True})["error"])
+        self.assertIn("muted", request(self.d, "mute", {"track": 3})["error"])
+        self.assertFalse(request(self.d, "mute", {"track": 99, "muted": True})["ok"])
+
     def test_large_reply_is_chunked(self):
         cues = [CuePoint("Section %d with a fairly long name" % i, i) for i in range(600)]
         d = Dispatcher(Song(cues, [Track("A", clips=[Clip("x", 0, 4)])]))

@@ -206,6 +206,57 @@ test('section loop toggles on and off', async () => {
   }
 });
 
+test('controller lists tracks and mutes and unmutes them', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.tracks.length === 3);
+    assert.deepEqual(controller.snapshot().tracks.map((t) => [t.name, t.muted]), [['Click [nokey]', false], ['Keys', false], ['Synth', false]]);
+    await controller.setMute(1, 'Keys', true);
+    assert.ok(fake.muted.has(1));
+    assert.equal(controller.tracks[1].muted, true);
+    await controller.setMute(1, 'Keys', false);
+    assert.ok(!fake.muted.has(1));
+    await assert.rejects(controller.setMute(1, 'Pad', true), /moved or been renamed/);
+    assert.ok(!fake.muted.has(1), 'nothing muted when the name does not match');
+  } finally {
+    done();
+  }
+});
+
+test('mutes made in Live show up after a change notice', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.tracks.length === 3);
+    fake.muted.add(2); // the user mutes Synth in Live
+    fake.pushChanged('tracks');
+    await until(() => controller.tracks[2].muted);
+  } finally {
+    done();
+  }
+});
+
+test('a mute is not held up by a slow command in the queue', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.tracks.length === 3);
+    fake.ignore.add('play'); // the queued command hangs until it times out (500 ms)
+    let slowDone = false;
+    const slow = controller.play().catch(() => {}).finally(() => (slowDone = true));
+    await sleep(20);
+    const t0 = Date.now();
+    await controller.setMute(0, 'Click [nokey]', true);
+    assert.ok(Date.now() - t0 < 300, 'mute answered before the stuck command timed out');
+    assert.ok(fake.muted.has(0));
+    assert.equal(slowDone, false, 'the slow command was still waiting');
+    await slow;
+  } finally {
+    done();
+  }
+});
+
 // ---- the real Remote Script code, through the Python fake Live -----------------
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -251,6 +302,10 @@ test('end to end with the Python Remote Script handlers', async (t) => {
     const { tracks } = await client.call<{ tracks: Array<{ name: string; clips: Array<{ pitch: number }> }> }>('tracks', { start: 200, end: 312 });
     assert.equal(tracks.find((tr) => tr.name === 'Keys')!.clips[0].pitch, 2);
     assert.equal(tracks.find((tr) => tr.name === 'Click [nokey]')!.clips[0].pitch, 0);
+    await until(() => controller.tracks.length === 6);
+    await controller.setMute(3, 'Keys', true);
+    const mixer = await client.call<{ tracks: Array<{ name: string; muted: boolean }> }>('mixer');
+    assert.equal(mixer.tracks[3].muted, true);
   } finally {
     client.stop();
     py.kill();

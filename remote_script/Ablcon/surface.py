@@ -20,6 +20,7 @@ class AblconSurface(object):
         self._client = None  # address of the last Ablcon server that talked to us
         self._last_pos = None
         self._last_cues = None
+        self._last_mixer = None
         self._tick = 0
         self._sock = None
         version = None
@@ -77,6 +78,12 @@ class AblconSurface(object):
         if pos != self._last_pos:
             self._last_pos = pos
             self._send(position_message(song), self._client)
+        # Mute changes are checked every tick so the page follows Live quickly.
+        mix = handlers.mixer_signature(song)
+        if mix != self._last_mixer:
+            if self._last_mixer is not None:
+                self._send(changed_message("tracks"), self._client)
+            self._last_mixer = mix
         self._tick += 1
         if self._tick % CUE_CHECK_TICKS == 0:
             sig = handlers.cue_signature(song)
