@@ -299,8 +299,22 @@ function renderPosition() {
 
   document.querySelectorAll('#setlist .song').forEach((li) => li.classList.toggle('current', !!here && li.dataset.id === here.songId));
 
-  const upNext = here ? (state.cuedId && state.cuedId !== here.songId ? rowById(state.cuedId) : nextAfter(here.songId)) : null;
-  $('#upNext').replaceChildren(...(upNext ? ['Up next: ', el('strong', {}, upNext.name)] : []));
+  let upNext = null;
+  let how = '';
+  if (here) {
+    const flow = here.stopAtEnd ? null : playable().find((r) => Math.abs(r.start - here.end) < 1e-6) || null;
+    if (state.cuedId && state.cuedId !== here.songId) {
+      upNext = rowById(state.cuedId);
+      how = flow && flow.songId === state.cuedId ? ' · plays straight on' : here.stopAtEnd ? ' · after the STOP' : ' · jumps there at the end of this song';
+    } else if (flow) {
+      upNext = flow;
+      how = ' · plays straight on';
+    } else {
+      upNext = nextAfter(here.songId);
+      how = here.stopAtEnd ? ' · after the STOP' : '';
+    }
+  }
+  $('#upNext').replaceChildren(...(upNext ? ['Up next: ', el('strong', {}, upNext.name), how] : []));
   $('#nextBtn').disabled = !nextAfter((here || focus || {}).songId);
 }
 

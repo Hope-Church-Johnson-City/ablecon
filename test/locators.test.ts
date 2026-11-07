@@ -21,7 +21,7 @@ test('builds songs and sections from out-of-order locators', () => {
   assert.deepEqual(warnings, []);
   assert.equal(songs.length, 2);
   assert.deepEqual(songs[0], {
-    id: 'song a', name: 'Song A', key: null, start: 0, end: 32,
+    id: 'song a', name: 'Song A', key: null, start: 0, end: 32, stopAtEnd: true,
     sections: [{ name: 'Verse', start: 0, end: 16 }, { name: 'Chorus', start: 16, end: 32 }],
   });
   // last song without "--" runs to the end of the arrangement
@@ -96,6 +96,14 @@ test('plain style: every locator is a song, STOP ends it, keys come from the nam
   assert.deepEqual(songs.map((s) => s.key), [
     { pitch: 7, minor: false }, { pitch: 0, minor: false }, { pitch: 5, minor: false }, { pitch: 11, minor: false },
   ]);
+});
+
+test('only songs that end at a STOP marker stop there', () => {
+  const { songs } = parseLocators(REAL_CUES, 2224, REAL_SECTION_CLIPS);
+  // Amazing Grace -> STOP; King Of Kings runs straight into How Great Thou Art; then STOP; Christ Is Enough -> STOP
+  assert.deepEqual(songs.map((s) => s.stopAtEnd), [true, false, true, true]);
+  const last = parseLocators([cue('A', 0), cue('B', 8)], 16).songs;
+  assert.deepEqual(last.map((s) => s.stopAtEnd), [false, false], 'the end of the arrangement is not a STOP');
 });
 
 test('plain style: sections come from the Sections track clips inside each song', () => {

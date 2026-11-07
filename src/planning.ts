@@ -134,14 +134,24 @@ export function sectionIndexAt(song: Song, beats: number): number {
 /** How far the playhead may move past a song's end in one update and still count as "played through". */
 const NATURAL_STEP_BEATS = 8;
 
-/**
- * What to do when playback runs off the end of a song.
- * Returns 'none' for jumps the user made, when looping, or when stopped.
- */
-export function endOfSongAction(prev: Position | null, now: Position, song: Pick<Song, 'start' | 'end'> | null, mode: EndOfSong): 'none' | 'stop' | 'next' {
-  if (!prev || !song || !prev.playing || !now.playing || mode === 'continue') return 'none';
+/** True when playback ran off the end of `song` between two updates (not a jump, not looping, not stopped). */
+export function crossedEnd(prev: Position | null, now: Position, song: Pick<Song, 'start' | 'end'> | null): boolean {
+  if (!prev || !song || !prev.playing || !now.playing) return false;
   const wasInside = prev.beats >= song.start && prev.beats < song.end;
-  const crossed = now.beats >= song.end && now.beats - song.end < NATURAL_STEP_BEATS;
-  if (!wasInside || !crossed) return 'none';
+  return wasInside && now.beats >= song.end && now.beats - song.end < NATURAL_STEP_BEATS;
+}
+
+/**
+ * What to do when playback runs off the end of a song. Only songs that end
+ * at a STOP marker stop or jump; any other boundary is played straight through.
+ */
+export function endOfSongAction(prev: Position | null, now: Position, song: Pick<Song, 'start' | 'end' | 'stopAtEnd'> | null, mode: EndOfSong): 'none' | 'stop' | 'next' {
+  if (!song?.stopAtEnd || mode === 'continue' || !crossedEnd(prev, now, song)) return 'none';
   return mode;
+}
+
+/** The song playback runs into after `song`, when no STOP marker ends it. */
+export function flowsInto<T extends Pick<Song, 'start' | 'end' | 'stopAtEnd'>>(songs: T[], song: T): T | null {
+  if (song.stopAtEnd) return null;
+  return songs.find((s) => Math.abs(s.start - song.end) < 1e-6) ?? null;
 }

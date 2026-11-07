@@ -17,6 +17,7 @@ export interface Song {
   key: { pitch: number; minor: boolean } | null; // original key written in the locator name
   start: number; // beats
   end: number; // beats
+  stopAtEnd: boolean; // ends at a STOP/-- marker; otherwise playback runs on into whatever follows
   sections: Section[];
 }
 

@@ -189,6 +189,67 @@ test('at the end of a song Live stops and the next song is cued', async () => {
   }
 });
 
+test('a song without a STOP plays straight into the next one, with its tempo and key ready', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    // First (0-32) runs into Second (32-64) with no STOP between them.
+    fake.set.cues = [{ name: 'First', time: 0 }, { name: 'Second (G)', time: 32 }, { name: 'STOP', time: 64 }];
+    fake.set.tracks[1].clips[1] = { ...fake.set.tracks[1].clips[1], start: 32, end: 64 };
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    assert.deepEqual(controller.songs.map((s) => s.stopAtEnd), [false, true]);
+    await controller.setTempo('second', 90);
+    await controller.setKey('second', 2);
+    await controller.start('first');
+    assert.equal(fake.set.tracks[1].clips[1].pitch, 2, "Second's stems transposed before it plays");
+    assert.equal(fake.set.tracks[1].clips[0].pitch, 0);
+    assert.equal(fake.set.tracks[2].pitchDevices[0].params[1].value, 0, 'Pitch devices wait');
+    assert.equal(fake.set.tempo, 120);
+
+    fake.set.beats = 31.9;
+    fake.pushPosition();
+    await until(() => controller.position.beats > 31);
+    const calls = fake.calls.length;
+    fake.set.beats = 32.05;
+    fake.pushPosition();
+    await until(() => fake.set.tempo === 90);
+    assert.equal(fake.set.playing, true, 'still playing');
+    assert.ok(!fake.methods().slice(calls).includes('stop'));
+    assert.ok(!fake.methods().slice(calls).includes('jump'), 'no jump either');
+    assert.equal(controller.cuedId, 'second');
+
+    // ...and Second ends at a STOP, so Live stops there.
+    fake.set.beats = 63.9;
+    fake.pushPosition();
+    await until(() => controller.position.beats > 63);
+    fake.set.beats = 64.05;
+    fake.pushPosition();
+    await until(() => fake.set.playing === false);
+  } finally {
+    done();
+  }
+});
+
+test('a queued song wins at a STOP-less boundary and playback jumps to it', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.set.cues = [{ name: 'First', time: 0 }, { name: 'Second', time: 32 }, { name: 'Third', time: 64 }, { name: 'STOP', time: 96 }];
+    await client.start();
+    await until(() => controller.songs.length === 3);
+    await controller.start('first');
+    await controller.cue('third');
+    fake.set.beats = 31.9;
+    fake.pushPosition();
+    await until(() => controller.position.beats > 31);
+    fake.set.beats = 32.05;
+    fake.pushPosition();
+    await until(() => fake.set.beats === 64);
+    assert.equal(fake.set.playing, true);
+  } finally {
+    done();
+  }
+});
+
 test('section loop toggles on and off', async () => {
   const { fake, controller, client, done } = await setup();
   try {

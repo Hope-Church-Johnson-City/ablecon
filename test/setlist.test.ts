@@ -6,7 +6,7 @@ import path from 'node:path';
 import * as sl from '../src/setlist.ts';
 import type { SetlistFile, Song } from '../src/types.ts';
 
-const song = (id: string, start: number, end: number): Song => ({ id, name: id.toUpperCase(), key: null, start, end, sections: [] });
+const song = (id: string, start: number, end: number): Song => ({ id, name: id.toUpperCase(), key: null, start, end, stopAtEnd: true, sections: [] });
 const songs = [song('a', 0, 32), song('b', 40, 72), song('c', 80, 96)];
 const ids = (f: SetlistFile | { entries: Array<{ songId: string }> }) => f.entries.map((e) => e.songId);
 
@@ -61,7 +61,7 @@ test('tempo and key validation', () => {
 });
 
 test('keys from locator names show in the rows', () => {
-  const g: Song = { id: 'g', name: 'G Song', key: { pitch: 7, minor: false }, start: 0, end: 8, sections: [] };
+  const g: Song = { id: 'g', name: 'G Song', key: { pitch: 7, minor: false }, start: 0, end: 8, stopAtEnd: true, sections: [] };
   let file = sl.reconcile(sl.emptySetlist(), [g]).file;
   assert.deepEqual(pick(sl.setlistRows(file, [g], 120).rows[0]), ['G', 'G']);
   file = sl.setSemitones(file, 'g', 2);

@@ -3,7 +3,7 @@
 
 import { EventEmitter } from 'node:events';
 import { parseLocators, type SectionClip } from './locators.ts';
-import { endOfSongAction, planKey, planTempo, songAt, splitKeyPlan } from './planning.ts';
+import { crossedEnd, endOfSongAction, flowsInto, planKey, planTempo, songAt, splitKeyPlan } from './planning.ts';
 import * as setlist from './setlist.ts';
 import type { Cue, KeyOp, MixerTrack, Position, SetlistFile, SetlistSettings, Song, TrackInfo } from './types.ts';
 
@@ -182,7 +182,14 @@ export class Controller extends EventEmitter<ControllerEvents> {
     this.position = pos;
     this.emit('position', pos);
     const wasIn = songAt(this.songs, prev.beats);
+    const nowIn = songAt(this.songs, pos.beats);
     const action = endOfSongAction(prev, pos, wasIn, this.file.settings.endOfSong);
+    if (wasIn && !wasIn.stopAtEnd && crossedEnd(prev, pos, wasIn)) {
+      this.onFlow(wasIn);
+    } else if (pos.playing && nowIn && nowIn.id !== wasIn?.id) {
+      // Playback moved into a song some other way (a jump, Play): get the song after it ready.
+      void this.run(() => this.prepareFlowNext(nowIn)).catch((err) => this.notice('error', err.message));
+    }
     if (action !== 'none' && wasIn) {
       // A song the user queued wins over the next one in the setlist.
       const queued = this.cuedId && this.cuedId !== wasIn.id && this.songs.some((s) => s.id === this.cuedId);
@@ -206,6 +213,36 @@ export class Controller extends EventEmitter<ControllerEvents> {
     }
   }
 
+  /**
+   * Playback ran off the end of a song that has no STOP marker. Keep playing:
+   * into the following song, or into a song the user queued instead.
+   */
+  private onFlow(from: Song): void {
+    const into = flowsInto(this.songs, from);
+    const queued = this.cuedId && this.cuedId !== from.id && this.cuedId !== into?.id && this.songs.some((s) => s.id === this.cuedId) ? this.cuedId : null;
+    void this.run(async () => {
+      if (queued) {
+        await this.prepare(queued, { jump: true });
+      } else if (into) {
+        this.cuedId = into.id;
+        await this.applyTempo(into.id);
+        await this.prepareFlowNext(into);
+        this.emit('state');
+      }
+    }).catch((err) => this.notice('error', err.message));
+  }
+
+  /**
+   * If `song` runs straight into another song (no STOP marker), transpose that
+   * song's audio clips now, while they aren't playing. Pitch devices are left
+   * for when the song is cued or started, because they affect every song.
+   */
+  private async prepareFlowNext(song: Song): Promise<void> {
+    const next = flowsInto(this.songs, song);
+    if (!next || (this.entry(next.id)?.semitones ?? null) === null) return;
+    await this.applyKey(next.id, { clipsOnly: true });
+  }
+
   // ---- tempo and key -----------------------------------------------------------
 
   private async applyTempo(songId: string): Promise<void> {
@@ -215,19 +252,29 @@ export class Controller extends EventEmitter<ControllerEvents> {
     this.position = { ...this.position, tempo: bpm };
   }
 
-  /** Plan and apply the key for one song, holding back anything unsafe. */
-  private async applyKey(songId: string): Promise<void> {
+  /**
+   * Plan and apply the key for one song, holding back anything unsafe.
+   * With clipsOnly, Pitch devices are not touched (or queued) at all.
+   */
+  private async applyKey(songId: string, opts: { clipsOnly?: boolean } = {}): Promise<void> {
     const semitones = this.entry(songId)?.semitones ?? null;
     if (semitones === null) return;
     const song = this.song(songId);
     const { tracks } = await this.live.call<{ tracks: TrackInfo[] }>('tracks', { start: song.start, end: song.end });
     const plan = planKey(song, semitones, tracks, this.file.settings.noKeyTag, this.file.settings.sectionsTrack);
-    const { now, later } = splitKeyPlan(plan, song, this.position);
+    let { now, later } = splitKeyPlan(plan, song, this.position);
+    if (opts.clipsOnly) {
+      now = now.filter((op) => op.kind === 'clip');
+      later = later.filter((op) => op.kind === 'clip');
+      if (plan.deviceOps.length > 0) {
+        plan.warnings.push('Pitch devices change when this song is cued or started, not when playback runs into it from the song before.');
+      }
+    }
     const errors = await this.applyOps(now);
     if (later.length > 0) this.pendingKeys.add(songId);
     else this.pendingKeys.delete(songId);
     this.keyStatus.set(songId, {
-      semitones: later.length === 0 && errors.length === 0 ? semitones : this.keyStatus.get(songId)?.semitones ?? null,
+      semitones: later.length === 0 && errors.length === 0 && !(opts.clipsOnly && plan.deviceOps.length) ? semitones : this.keyStatus.get(songId)?.semitones ?? null,
       pending: later.length > 0,
       warnings: plan.warnings,
       error: errors.length ? errors.join('; ') : null,
@@ -261,6 +308,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
     await this.applyTempo(songId);
     await this.applyKey(songId);
     if (opts.jump) await this.live.call('jump', { beats: opts.beats ?? song.start });
+    await this.prepareFlowNext(song);
     this.emit('state');
   }
 

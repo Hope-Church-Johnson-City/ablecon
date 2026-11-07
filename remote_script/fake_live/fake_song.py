@@ -164,8 +164,7 @@ def plain_song():
         CuePoint("Morning Light (G)", 0),
         CuePoint("STOP", 135),
         CuePoint("River Wide (Bb)", 140),
-        CuePoint("STOP", 263),
-        CuePoint("Still Waters (Em)", 268),
+        CuePoint("Still Waters (Em)", 263),  # no STOP before it: River Wide runs straight on
         CuePoint("STOP", 395),
     ]
     parts = [
@@ -173,14 +172,14 @@ def plain_song():
         ("Bridge", 88, 120), ("Outro", 120, 135),
         ("Count Off", 140, 148), ("Intro", 148, 164), ("Verse", 164, 196), ("Chorus", 196, 228),
         ("Tag", 228, 263),
-        ("Count Off", 268, 276), ("Verse", 276, 308), ("Chorus", 308, 340), ("Ending", 340, 395),
+        ("Verse", 263, 308), ("Chorus", 308, 340), ("Ending", 340, 395),
     ]
     tracks = [
         Track("Sections", midi=True, clips=[Clip(n, s, e, audio=False) for n, s, e in parts]),
         Track("Click Foundations", clips=[Clip("click", 0, 395)]),
         Track("Guide", clips=[Clip("guide", 0, 395)]),
     ]
-    for title, start, end in (("Morning Light", 0, 135), ("River Wide", 140, 263), ("Still Waters", 268, 395)):
+    for title, start, end in (("Morning Light", 0, 135), ("River Wide", 140, 263), ("Still Waters", 263, 395)):
         group = Track(title, foldable=True)
         tracks.append(group)
         for stem in ("Drums", "Bass", "AG", "Keys", "Pad"):

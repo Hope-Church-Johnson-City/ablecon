@@ -78,7 +78,7 @@ Used when no locator name starts with `*`. This is how most worship multitrack s
 | In the set | Meaning |
 | --- | --- |
 | A locator, e.g. `How Great Thou Art (F)` | A song starts here. A key in brackets at the end (`(G)`, `(Bb)`, `(Em)`…) is read as the song's original key. |
-| A locator named `STOP` (or `--`) | The current song ends here. Optional: without it a song ends where the next one starts. |
+| A locator named `STOP` (or `--`) | The current song ends here, and playback stops here (see [When a song ends](#when-a-song-ends)). Without one, a song ends where the next one starts and Live plays straight on into it. |
 | A locator starting with `//` | Ignored. |
 | Clips on a track named **Sections** | Each clip that starts inside a song becomes a section button, named after the clip (`Count Off`, `Intro`, `Verse 1`…). The clip's length doesn't matter: a section runs until the next one. |
 
@@ -99,7 +99,7 @@ Used as soon as any locator name starts with `*`. Songs and sections are both lo
 | Locator name | Meaning |
 | --- | --- |
 | `*Song Title` | A song starts here (a space after the `*` is fine). A key in brackets works here too. |
-| `--` or `STOP` | The current song ends here. Optional. |
+| `--` or `STOP` | The current song ends here, and playback stops here. Without one, the song runs straight on into the next. |
 | `// anything` | Ignored. |
 | anything else | A section of the song it falls in (`Intro`, `Verse 1`, `Chorus`, `End`…). |
 
@@ -139,7 +139,8 @@ A song with no section locators still gets its sections from the Sections track,
 ## Using it
 
 - **Tap a song** to get it ready. If Live is stopped, the playhead moves to it and its tempo and key are
-  set. If Live is playing, it becomes **Up next** and plays when the current song ends.
+  set. If Live is playing, it becomes **Up next**: at the current song's end, Ablcon goes to it (stopping
+  first if there's a STOP marker).
 - **▶ next to a song** jumps straight to it and plays.
 - **Play / Stop.** Pressing Stop while already stopped returns to the start of the current song.
   The space bar also starts and stops when the page has focus.
@@ -156,15 +157,27 @@ A song with no section locators still gets its sections from the Sections track,
 - **Set** in the top bar is the total running time of every song in the setlist. Songs without their own
   tempo are timed at Live's current tempo. Tempo automation inside a song isn't taken into account.
 
-### When a song ends (Settings)
+### When a song ends
 
-- **Stop and get the next song ready** (default): Live stops at the song's end marker and the playhead
-  moves to the next song in the setlist (or the one you queued), with its tempo and key applied.
-- **Go straight into the next song:** jumps to the next song and keeps playing. Its tempo is set at the jump.
-- **Keep playing the arrangement:** Ablcon does nothing; Live plays on as normal.
+Ablcon only ever stops at a `STOP` (or `--`) marker. Every other boundary is played straight through:
 
-Ablcon sees the playhead about ten times a second, so Live may play a fraction of a beat past the end
-marker before it stops or jumps. Leave a little silence before `--` (or between songs).
+- **No STOP after a song:** Live keeps playing into the song that follows it in the arrangement, whatever
+  the setlist order. As playback crosses into it, Ablcon sets that song's tempo (if you gave it one).
+  Its stems are transposed ahead of time, while the song before is still playing, so the key is already
+  right when it starts. Pitch devices on MIDI tracks are the exception: they affect every song, so they
+  only change when a song is cued or started. If you queued a different song with **Next song** or by
+  tapping it, playback jumps to that song at the boundary instead and keeps playing.
+- **A STOP after a song:** what happens is set in **Settings → When a song ends**:
+  - **Stop and get the next song ready** (default): Live stops at the STOP marker and the playhead moves
+    to the next song in the setlist (or the one you queued), with its tempo and key applied.
+  - **Go straight into the next song:** jumps to that song and keeps playing. Its tempo is set at the jump.
+  - **Keep playing the arrangement:** Ablcon does nothing at STOP markers; Live plays on as normal.
+
+Under the transport buttons, **Up next** shows what follows the current song and how: "plays straight
+on" or "after the STOP".
+
+Ablcon sees the playhead about ten times a second, so Live may play a fraction of a beat past a STOP
+marker before it stops or jumps. Leave a little silence before each STOP.
 
 ### Tempo per song
 
@@ -317,6 +330,8 @@ Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `t
   song edges, Pitch devices and their range, what may change while playing, end-of-song detection.
 - **Track mutes**: listing tracks, muting and unmuting, refusing a track that was renamed or moved,
   picking up mutes made in Live, and mutes not waiting behind a slow transport or key command.
+- **Song ends**: stopping only at STOP markers, playing straight through other boundaries with the next
+  song's tempo and stems ready, and jumping to a queued song instead.
 - **Against a fake Live over real UDP**: request/response, chunked replies, timeouts, position pushes,
   cueing, queued songs while playing, stop at song end, section loops.
 - **End to end with the real Remote Script handlers** running in Python against a fake Live set.

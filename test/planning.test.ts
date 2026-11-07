@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { endOfSongAction, isTagged, planKey, planTempo, songAt, splitKeyPlan } from '../src/planning.ts';
+import { crossedEnd, endOfSongAction, flowsInto, isTagged, planKey, planTempo, songAt, splitKeyPlan } from '../src/planning.ts';
 import type { Position, TrackInfo } from '../src/types.ts';
 
 test('tempo is only sent when set and different', () => {
@@ -99,8 +99,8 @@ test('nothing sounding is changed while playing', () => {
 
 const pos = (beats: number, playing = true): Position => ({ beats, playing, tempo: 120, loop: { enabled: false, start: 0, length: 4 } });
 
-test('end-of-song fires only when playback runs off the end', () => {
-  const song = { start: 0, end: 32 };
+test('end-of-song fires only when playback runs off the end of a song with a STOP', () => {
+  const song = { start: 0, end: 32, stopAtEnd: true };
   assert.equal(endOfSongAction(pos(31.8), pos(32.1), song, 'stop'), 'stop');
   assert.equal(endOfSongAction(pos(31.8), pos(32.1), song, 'next'), 'next');
   assert.equal(endOfSongAction(pos(31.8), pos(32.1), song, 'continue'), 'none');
@@ -109,6 +109,19 @@ test('end-of-song fires only when playback runs off the end', () => {
   assert.equal(endOfSongAction(pos(31.8, false), pos(32.1), song, 'stop'), 'none');
   assert.equal(endOfSongAction(pos(31.8), pos(32.1, false), song, 'stop'), 'none');
   assert.equal(endOfSongAction(null, pos(32.1), song, 'stop'), 'none');
+  const flowing = { start: 0, end: 32, stopAtEnd: false };
+  assert.equal(endOfSongAction(pos(31.8), pos(32.1), flowing, 'stop'), 'none', 'no STOP: play straight through');
+  assert.equal(endOfSongAction(pos(31.8), pos(32.1), flowing, 'next'), 'none');
+  assert.ok(crossedEnd(pos(31.8), pos(32.1), flowing));
+});
+
+test('flowsInto finds the song that starts where a STOP-less song ends', () => {
+  const a = { start: 0, end: 32, stopAtEnd: false };
+  const b = { start: 32, end: 64, stopAtEnd: true };
+  const c = { start: 70, end: 80, stopAtEnd: false };
+  assert.equal(flowsInto([a, b, c], a), b);
+  assert.equal(flowsInto([a, b, c], b), null, 'ends at a STOP');
+  assert.equal(flowsInto([a, b, c], c), null, 'nothing follows');
 });
 
 test('songAt finds the song under the playhead', () => {

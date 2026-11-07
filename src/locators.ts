@@ -11,7 +11,8 @@
 //   every locator   starts a song, named after the locator
 //
 // In both styles:
-//   -- or STOP      ends the current song (optional; otherwise the next song ends it)
+//   -- or STOP      ends the current song, and playback stops there. Without one, a song
+//                   ends where the next one starts and playback runs straight on into it.
 //   // text         is ignored
 //   "(G)", "(Bm)"…  at the end of a song name is read as the song's original key
 //
@@ -74,11 +75,12 @@ export function parseLocators(cues: Cue[], setEnd: number, sectionClips: Section
   const seen = new Map<string, number>();
   let current: (Song & { sectionStarts: Array<{ name: string; start: number }> }) | null = null;
 
-  const close = (end: number) => {
+  const close = (end: number, byMarker = false) => {
     if (!current) return;
     const song = current;
     current = null;
     song.end = end;
+    song.stopAtEnd = byMarker;
     if (song.end <= song.start) {
       warnings.push(`Song "${song.name}" has no length and was skipped.`);
       return;
@@ -95,7 +97,7 @@ export function parseLocators(cues: Cue[], setEnd: number, sectionClips: Section
       start: s.start,
       end: i + 1 < all.length ? all[i + 1].start : song.end,
     })).filter((s) => s.end > s.start);
-    songs.push({ id: song.id, name: song.name, key: song.key, start: song.start, end: song.end, sections });
+    songs.push({ id: song.id, name: song.name, key: song.key, start: song.start, end: song.end, stopAtEnd: song.stopAtEnd, sections });
   };
 
   for (const item of items) {
@@ -104,7 +106,7 @@ export function parseLocators(cues: Cue[], setEnd: number, sectionClips: Section
         break;
       case 'end':
         if (!current) warnings.push(`End marker "${item.raw.trim()}" at beat ${fmt(item.time)} is not inside a song.`);
-        close(item.time);
+        close(item.time, true);
         break;
       case 'song': {
         close(item.time);
@@ -116,7 +118,7 @@ export function parseLocators(cues: Cue[], setEnd: number, sectionClips: Section
         const n = (seen.get(songIdFor(title, 1)) ?? 0) + 1;
         seen.set(songIdFor(title, 1), n);
         if (n > 1) warnings.push(`Song name "${title}" is used ${n} times; the setlist tells them apart by order.`);
-        current = { id: songIdFor(title, n), name: title, key, start: item.time, end: item.time, sections: [], sectionStarts: [] };
+        current = { id: songIdFor(title, n), name: title, key, start: item.time, end: item.time, stopAtEnd: false, sections: [], sectionStarts: [] };
         break;
       }
       case 'section':

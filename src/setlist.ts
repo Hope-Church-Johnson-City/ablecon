@@ -123,6 +123,7 @@ export function songSeconds(song: Song, bpm: number): number {
 export interface SetlistRow extends SetlistEntry {
   missing: boolean;
   originalKey: string | null; // e.g. "G", from the locator name
+  stopAtEnd: boolean; // ends at a STOP marker (false: plays straight on into the next song)
   playedKey: string | null; // originalKey moved by semitones, e.g. "A
   start: number | null;
   end: number | null;
@@ -135,12 +136,12 @@ export function setlistRows(file: SetlistFile, songs: Song[], liveTempo: number)
   let total = 0;
   const rows = file.entries.map((entry): SetlistRow => {
     const song = byId.get(entry.songId);
-    if (!song) return { ...entry, missing: true, originalKey: null, playedKey: null, start: null, end: null, sections: [], seconds: null };
+    if (!song) return { ...entry, missing: true, stopAtEnd: true, originalKey: null, playedKey: null, start: null, end: null, sections: [], seconds: null };
     const seconds = songSeconds(song, entry.tempo ?? liveTempo);
     total += seconds;
     const originalKey = song.key ? keyName(song.key) : null;
     const playedKey = song.key ? keyName(transposeKey(song.key, entry.semitones ?? 0)) : null;
-    return { ...entry, missing: false, originalKey, playedKey, start: song.start, end: song.end, sections: song.sections, seconds };
+    return { ...entry, missing: false, stopAtEnd: song.stopAtEnd, originalKey, playedKey, start: song.start, end: song.end, sections: song.sections, seconds };
   });
   return { rows, totalSeconds: total };
 }
