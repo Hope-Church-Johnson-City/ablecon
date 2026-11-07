@@ -89,20 +89,40 @@ class Song(object):
         self.signature_numerator = 4
         self.signature_denominator = 4
         self.song_length = float(song_length)
-        self.insert_marker = 0.0  # where start_playing() begins, as in Live
+        # Like Live: start_playing() begins at the start marker, and
+        # continue_playing() where playback last stopped. Moving
+        # current_song_time while stopped changes neither.
+        self._start_time = 0.0
+        self.stop_position = 0.0
+        self.has_start_time = True  # False imitates a Live without Song.start_time
         self.calls = []
+
+    @property
+    def start_time(self):
+        if not self.has_start_time:
+            raise AttributeError("start_time")
+        return self._start_time
+
+    @start_time.setter
+    def start_time(self, value):
+        if not self.has_start_time:
+            raise AttributeError("start_time")
+        self._start_time = float(value)
 
     def start_playing(self):
         self.calls.append("start_playing")
-        self.current_song_time = self.insert_marker
+        self.current_song_time = self._start_time
         self.is_playing = True
 
     def continue_playing(self):
         self.calls.append("continue_playing")
+        self.current_song_time = self.stop_position
         self.is_playing = True
 
     def stop_playing(self):
         self.calls.append("stop_playing")
+        if self.is_playing:
+            self.stop_position = self.current_song_time
         self.is_playing = False
 
     def advance(self, seconds):

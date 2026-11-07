@@ -46,6 +46,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
   private pendingKeys = new Set<string>();
   private flushing = false;
   private tempoSaving = new Set<string>();
+  private oldScriptWarned = false;
   tracks: MixerTrack[] = [];
   private mixerRead = 0; // newest track-list read; older replies are dropped
   private queue: Promise<unknown> = Promise.resolve();
@@ -325,7 +326,11 @@ export class Controller extends EventEmitter<ControllerEvents> {
     this.cuedId = songId;
     await this.applyTempo(songId);
     await this.applyKey(songId);
-    if (opts.jump) await this.live.call('jump', { beats: opts.beats ?? song.start });
+    if (opts.jump) {
+      const beats = opts.beats ?? song.start;
+      await this.live.call('jump', { beats });
+      this.position = { ...this.position, beats };
+    }
     await this.prepareFlowNext(song);
     this.emit('state');
   }
@@ -334,9 +339,46 @@ export class Controller extends EventEmitter<ControllerEvents> {
 
   play(): Promise<void> {
     return this.run(async () => {
-      // "continue" plays from the playhead, which is where Ablcon put it.
-      // Live's plain "play" would start from its insert marker instead.
-      await this.live.call('continue');
+      if (this.position.playing) return;
+      await this.startAt(this.position.beats);
+    });
+  }
+
+  /**
+   * Start playback exactly at `beats`. Live's own Play starts from its start
+   * marker and "continue" from where it last stopped, so neither follows the
+   * playhead Ablcon moved; the Remote Script's play_from moves the start
+   * marker first. A Remote Script from an older Ablcon lacks play_from: then
+   * start and jump once Live reports it's playing (a moment of the wrong
+   * audio can be heard, so the user is told to update the script).
+   */
+  private async startAt(beats: number): Promise<void> {
+    try {
+      await this.live.call('play_from', { beats });
+      return;
+    } catch (err) {
+      if (!/unknown method/.test((err as Error).message)) throw err;
+    }
+    if (!this.oldScriptWarned) {
+      this.oldScriptWarned = true;
+      this.notice('warn', 'Update the Remote Script (File → Install Remote Script in Ableton Live…, then restart Live) so songs start cleanly.');
+    }
+    const playing = this.waitForPlaying(1500);
+    await this.live.call('continue');
+    await playing;
+    await this.live.call('jump', { beats });
+  }
+
+  private waitForPlaying(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        this.live.off('position', check);
+        resolve();
+      };
+      const check = (p: Position) => p.playing && done();
+      const timer = setTimeout(done, ms);
+      this.live.on('position', check);
     });
   }
 
@@ -389,7 +431,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
       const song = this.song(songId);
       const beats = sectionIndex === undefined ? song.start : this.sectionOf(song, sectionIndex).start;
       await this.prepare(songId, { jump: true, beats });
-      if (!this.position.playing) await this.live.call('continue');
+      if (!this.position.playing) await this.startAt(beats);
     });
   }
 

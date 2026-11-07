@@ -71,19 +71,44 @@ class DispatcherTests(unittest.TestCase):
 
     def test_transport(self):
         request(self.d, "jump", {"beats": 200})
-        request(self.d, "continue")  # plays from the playhead
         request(self.d, "tempo", {"bpm": 72})
         self.assertEqual(self.song.current_song_time, 200)
-        self.assertEqual(self.song.calls[-1], "continue_playing")
-        self.assertTrue(self.song.is_playing)
         self.assertEqual(self.song.tempo, 72)
+        request(self.d, "play")
+        self.assertTrue(self.song.is_playing)
+        self.assertEqual(self.song.current_song_time, 200, "jump while stopped moved the start marker")
         request(self.d, "stop")
         self.assertFalse(self.song.is_playing)
-        request(self.d, "jump", {"beats": 200})
-        request(self.d, "play")  # like Live: from the insert marker, not the playhead
-        self.assertEqual(self.song.current_song_time, 0)
-        request(self.d, "stop")
         self.assertFalse(request(self.d, "tempo", {"bpm": 5})["ok"])
+
+    def test_play_from_uses_the_start_marker(self):
+        self.song.current_song_time = 37.0
+        self.song.stop_playing()
+        res = request(self.d, "play_from", {"beats": 312})["result"]
+        self.assertEqual(res, {"method": "start_marker"})
+        self.assertTrue(self.song.is_playing)
+        self.assertEqual(self.song.current_song_time, 312)
+        res = request(self.d, "play_from", {"beats": 200})["result"]
+        self.assertEqual(res, {"method": "jump"}, "already playing: just jump")
+        self.assertEqual(self.song.current_song_time, 200)
+
+    def test_play_from_without_start_time_jumps_once_playing(self):
+        self.song.has_start_time = False
+        self.song.is_playing = True
+        self.song.current_song_time = 37.0
+        self.song.stop_playing()  # Live would continue from 37
+        res = request(self.d, "play_from", {"beats": 312})["result"]
+        self.assertEqual(res, {"method": "jump_after_start"})
+        self.assertEqual(self.song.current_song_time, 37, "Live starts where it stopped...")
+        handlers.apply_pending_jump(self.song)  # ...and the next tick jumps
+        self.assertEqual(self.song.current_song_time, 312)
+        handlers.apply_pending_jump(self.song)
+        self.assertEqual(self.song.current_song_time, 312, "only once")
+
+    def test_jump_while_stopped_reports_start_marker(self):
+        self.assertEqual(request(self.d, "jump", {"beats": 8})["result"], {"startMarker": True})
+        self.song.has_start_time = False
+        self.assertEqual(request(self.d, "jump", {"beats": 8})["result"], {"startMarker": False})
 
     def test_loop(self):
         request(self.d, "loop", {"start": 48, "length": 32, "enabled": True})

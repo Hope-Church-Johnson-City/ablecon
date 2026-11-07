@@ -98,6 +98,7 @@ class AblconSurface(object):
             return
         try:
             self._poll()
+            handlers.apply_pending_jump(self._c.song())
             self._push()
         except Exception as exc:
             self._log("tick error: %s" % exc)

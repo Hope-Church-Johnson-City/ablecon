@@ -51,6 +51,7 @@ def main():
         except socket.timeout:
             pass
         now = time.monotonic()
+        handlers.apply_pending_jump(song)
         song.advance(now - last)
         last = now
         if client is not None:

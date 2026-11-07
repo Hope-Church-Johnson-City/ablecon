@@ -5,7 +5,7 @@ something JSON-serialisable. Nothing here imports Live modules, so the same
 code runs under the unit tests with a fake Song.
 """
 
-SCRIPT_VERSION = "1.0.0"
+SCRIPT_VERSION = "1.1.0"
 
 # Class name Live reports for its built-in "Pitch" MIDI effect.
 PITCH_DEVICE_CLASS = "MidiPitcher"
@@ -89,12 +89,61 @@ def stop(song, args):
     return True
 
 
+# Live has two start points besides the visible playhead: start_playing()
+# begins at the start marker (Song.start_time) and continue_playing() at the
+# position where playback last stopped. Moving current_song_time while stopped
+# changes neither, so a later Play would start somewhere else. Ablcon moves the
+# start marker too, and falls back to "start, then jump" if this Live has no
+# start_time.
+_pending_jump = {"beats": None}
+
+
+def _set_start_marker(song, beats):
+    """Move Live's start marker. Returns False if this Live version can't."""
+    try:
+        song.start_time = beats
+        return True
+    except Exception:
+        return False
+
+
 def jump(song, args):
     beats = _num(args, "beats")
     if beats < 0:
         raise RequestError("beats must be >= 0")
+    marker = False
+    if not song.is_playing:
+        marker = _set_start_marker(song, beats)
     song.current_song_time = beats
-    return True
+    return {"startMarker": marker}
+
+
+def play_from(song, args):
+    """Start playback exactly at `beats`."""
+    beats = _num(args, "beats")
+    if beats < 0:
+        raise RequestError("beats must be >= 0")
+    if song.is_playing:
+        song.current_song_time = beats
+        return {"method": "jump"}
+    if _set_start_marker(song, beats):
+        song.current_song_time = beats
+        song.start_playing()
+        return {"method": "start_marker"}
+    # Older Live: start, then jump on the next tick once playback is running.
+    _pending_jump["beats"] = beats
+    song.continue_playing()
+    return {"method": "jump_after_start"}
+
+
+def apply_pending_jump(song):
+    """Called every tick by the surface; finishes a play_from fallback."""
+    beats = _pending_jump["beats"]
+    if beats is None:
+        return
+    if song.is_playing:
+        _pending_jump["beats"] = None
+        song.current_song_time = beats
 
 
 def tempo(song, args):
@@ -275,6 +324,7 @@ HANDLERS = {
     "continue": resume,
     "stop": stop,
     "jump": jump,
+    "play_from": play_from,
     "tempo": tempo,
     "loop": loop,
     "tracks": tracks,

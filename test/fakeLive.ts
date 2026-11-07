@@ -20,7 +20,12 @@ export class FakeLive {
   calls: Array<{ method: string; args: Record<string, unknown> }> = [];
   chunkSize = 6000;
   muted = new Set<number>(); // track indexes muted in the fake mixer
-  insertMarker = 0; // where Live's plain "play" starts from; moving the playhead doesn't change it
+  // Like Live: "play" starts at the start marker and "continue" where playback last
+  // stopped. Moving the playhead while stopped changes neither, unless the script
+  // can move the start marker (Song.start_time), which Ablcon's script does on jump.
+  startMarker = 0;
+  stopPosition = 0;
+  oldScript = false; // imitate the Remote Script from before play_from existed
   silent = false; // when true, requests are ignored (simulates Live not running)
   ignore = new Set<string>(); // methods to leave unanswered
   private socket = dgram.createSocket('udp4');
@@ -38,7 +43,10 @@ export class FakeLive {
     return this.port;
   }
 
+  private closed = false;
+
   close(): void {
+    this.closed = true;
     this.socket.close();
   }
 
@@ -48,14 +56,19 @@ export class FakeLive {
 
   /** Send a position update the way the Remote Script does every tick. */
   pushPosition(): void {
-    if (!this.client) return;
+    if (!this.client || this.closed) return;
     const s = this.set;
     const msg = encodeMessage('/ablcon/pos', [float(s.beats), int(s.playing ? 1 : 0), float(s.tempo), int(s.loop.enabled ? 1 : 0), float(s.loop.start), float(s.loop.length)]);
     this.socket.send(msg, this.client.port, this.client.address);
   }
 
+  /** Live reports position changes on its next tick. */
+  private autoPush(): void {
+    setTimeout(() => this.pushPosition(), 5);
+  }
+
   pushChanged(what: string): void {
-    if (!this.client) return;
+    if (!this.client || this.closed) return;
     this.socket.send(encodeMessage('/ablcon/changed', [str(what)]), this.client.port, this.client.address);
   }
 
@@ -88,10 +101,25 @@ export class FakeLive {
       case 'ping': return { script: 'ablcon', version: 'test', live: '12.0.0' };
       case 'state': return { beats: s.beats, playing: s.playing, tempo: s.tempo, loop: s.loop };
       case 'cues': return { cues: s.cues, songLength: s.songLength };
-      case 'play': s.beats = this.insertMarker; s.playing = true; return true; // like Live: from the insert marker
-      case 'continue': s.playing = true; return true;
-      case 'stop': s.playing = false; return true;
-      case 'jump': s.beats = Number(args.beats); return true;
+      case 'play': s.beats = this.startMarker; s.playing = true; this.autoPush(); return true;
+      case 'continue': s.beats = this.stopPosition; s.playing = true; this.autoPush(); return true;
+      case 'stop':
+        if (s.playing) this.stopPosition = s.beats;
+        s.playing = false;
+        this.autoPush();
+        return true;
+      case 'jump':
+        if (!s.playing && !this.oldScript) this.startMarker = Number(args.beats);
+        s.beats = Number(args.beats);
+        this.autoPush();
+        return { startMarker: !s.playing && !this.oldScript };
+      case 'play_from':
+        if (this.oldScript) throw new Error("unknown method 'play_from'");
+        if (!s.playing) this.startMarker = Number(args.beats);
+        s.beats = Number(args.beats);
+        s.playing = true;
+        this.autoPush();
+        return { method: 'start_marker' };
       case 'tempo': s.tempo = Number(args.bpm); return true;
       case 'loop':
         if (args.start !== undefined) s.loop = { ...s.loop, start: Number(args.start), length: Number(args.length) };

@@ -255,7 +255,8 @@ test('Play after tapping a song plays that song, not from Live\'s insert marker'
   try {
     await client.start();
     await until(() => controller.songs.length === 2);
-    fake.insertMarker = 0; // Live's insert marker sits at the top of the set, as in the bug report
+    fake.startMarker = 0; // Live's start marker at the top of the set, as in the bug report
+    fake.stopPosition = 9; // and it last stopped somewhere in the first song
     await controller.cue('second');
     assert.equal(fake.set.beats, 40);
     await controller.play();
@@ -265,6 +266,27 @@ test('Play after tapping a song plays that song, not from Live\'s insert marker'
     await controller.start('first', 1);
     assert.equal(fake.set.beats, 16);
     assert.equal(fake.set.playing, true);
+  } finally {
+    done();
+  }
+});
+
+test('with an old Remote Script, Play still lands on the song (start, then jump)', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    fake.oldScript = true;
+    fake.stopPosition = 9;
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    const notices: string[] = [];
+    controller.on('notice', (n) => notices.push(n.text));
+    await controller.cue('second');
+    await controller.play();
+    assert.equal(fake.set.playing, true);
+    assert.equal(fake.set.beats, 40);
+    const m = fake.methods();
+    assert.deepEqual(m.slice(m.lastIndexOf('play_from')), ['play_from', 'continue', 'jump']);
+    assert.match(notices.join(), /Update the Remote Script/);
   } finally {
     done();
   }
@@ -371,7 +393,7 @@ test('a mute is not held up by a slow command in the queue', async () => {
   try {
     await client.start();
     await until(() => controller.tracks.length === 3);
-    fake.ignore.add('continue'); // the queued command hangs until it times out (500 ms)
+    fake.ignore.add('play_from'); // the queued command hangs until it times out (500 ms)
     let slowDone = false;
     const slow = controller.play().catch(() => {}).finally(() => (slowDone = true));
     await sleep(20);
