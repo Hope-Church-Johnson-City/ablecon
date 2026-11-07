@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101418">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Ablcon</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Ablcon</div>
+    <div id="link" class="link off" title="Connection to Live"><span class="dot"></span><span id="linkText">Connecting…</span></div>
+    <div class="spacer"></div>
+    <div class="setlen" title="Total running time of every song in the setlist">Set <strong id="setLength">–</strong></div>
+    <button id="settingsBtn" class="ghost" aria-label="Settings">⚙</button>
+  </header>
+
+  <main>
+    <section class="stage">
+      <div class="now">
+        <div class="label" id="nowLabel">Not in a song</div>
+        <div class="title" id="nowTitle">–</div>
+        <div class="meta"><span id="nowSection">–</span><span id="nowTempo"></span><span id="nowKey"></span></div>
+        <div class="bar"><div id="barFill"></div><div id="barMarks"></div></div>
+        <div class="times"><span id="elapsed">0:00</span><span id="remaining">–0:00</span></div>
+      </div>
+      <div class="transport">
+        <button id="playBtn" class="big go">▶ Play</button>
+        <button id="stopBtn" class="big halt">■ Stop</button>
+        <button id="nextBtn" class="big">Next song ⏭</button>
+      </div>
+      <div class="upnext" id="upNext"></div>
+
+      <div class="sections-head">
+        <h2>Sections</h2>
+        <div class="seg" role="radiogroup" aria-label="What tapping a section does">
+          <button data-mode="jump" class="on">Tap jumps</button>
+          <button data-mode="loop">Tap loops</button>
+        </div>
+        <button id="loopOffBtn" class="ghost small hidden">Loop off</button>
+      </div>
+      <div id="sections" class="sections"></div>
+    </section>
+
+    <section class="list">
+      <div class="list-head">
+        <h2>Setlist</h2>
+        <button id="editBtn" class="ghost small">Edit</button>
+      </div>
+      <ol id="setlist" class="setlist"></ol>
+      <div id="warnings" class="warnings hidden"></div>
+    </section>
+  </main>
+
+  <dialog id="settings">
+    <form method="dialog" class="settings">
+      <h2>Settings</h2>
+      <label>When a song ends
+        <select id="endOfSong">
+          <option value="stop">Stop and get the next song ready</option>
+          <option value="next">Go straight into the next song</option>
+          <option value="continue">Keep playing the arrangement</option>
+        </select>
+      </label>
+      <label>Tracks never transposed contain
+        <input id="noKeyTag" type="text" autocomplete="off" spellcheck="false">
+      </label>
+      <p class="hint">Put this tag in a track or group name (for example click, guide and cue tracks).</p>
+      <div class="row-btns">
+        <button type="button" id="rescanBtn" class="ghost">Re-read locators</button>
+        <button value="close">Done</button>
+      </div>
+      <p class="hint" id="urls"></p>
+    </form>
+  </dialog>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

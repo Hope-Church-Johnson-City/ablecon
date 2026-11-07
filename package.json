@@ -1,0 +1,27 @@
+{
+  "name": "ablcon",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Setlist and remote control for Ableton Live, from any browser on your network.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node src/main.ts",
+    "fake-live": "python3 remote_script/fake_live/fake_live_server.py",
+    "demo": "node scripts/demo.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "test:python": "python3 -m unittest discover -s remote_script/tests",
+    "test:all": "npm run typecheck && npm test && npm run test:python"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2"
+  }
+}
