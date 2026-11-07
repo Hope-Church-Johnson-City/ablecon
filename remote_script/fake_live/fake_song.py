@@ -89,10 +89,12 @@ class Song(object):
         self.signature_numerator = 4
         self.signature_denominator = 4
         self.song_length = float(song_length)
+        self.insert_marker = 0.0  # where start_playing() begins, as in Live
         self.calls = []
 
     def start_playing(self):
         self.calls.append("start_playing")
+        self.current_song_time = self.insert_marker
         self.is_playing = True
 
     def continue_playing(self):

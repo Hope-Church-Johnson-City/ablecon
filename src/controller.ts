@@ -45,6 +45,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
   keyStatus = new Map<string, KeyStatus>();
   private pendingKeys = new Set<string>();
   private flushing = false;
+  private tempoSaving = new Set<string>();
   tracks: MixerTrack[] = [];
   private mixerRead = 0; // newest track-list read; older replies are dropped
   private queue: Promise<unknown> = Promise.resolve();
@@ -184,6 +185,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
     const wasIn = songAt(this.songs, prev.beats);
     const nowIn = songAt(this.songs, pos.beats);
     const action = endOfSongAction(prev, pos, wasIn, this.file.settings.endOfSong);
+    if (nowIn) this.noteTempo(nowIn, pos);
     if (wasIn && !wasIn.stopAtEnd && crossedEnd(prev, pos, wasIn)) {
       this.onFlow(wasIn);
     } else if (pos.playing && nowIn && nowIn.id !== wasIn?.id) {
@@ -211,6 +213,22 @@ export class Controller extends EventEmitter<ControllerEvents> {
         .catch((err) => this.notice('error', err.message))
         .finally(() => (this.flushing = false));
     }
+  }
+
+  /**
+   * Remember the tempo Live reports near the start of a song. Sets often
+   * change tempo with automation, so Live's current tempo says nothing about
+   * the other songs; this keeps each song's running time right.
+   */
+  private noteTempo(song: Song, pos: Position): void {
+    if (pos.beats < song.start || pos.beats - song.start > 16) return;
+    const entry = this.entry(song.id);
+    if (!entry || this.tempoSaving.has(song.id)) return;
+    if (entry.seenTempo != null && Math.abs(entry.seenTempo - pos.tempo) < 0.01) return;
+    this.tempoSaving.add(song.id);
+    void this.run(() => this.save(setlist.setSeenTempo(this.file, song.id, pos.tempo)))
+      .catch(() => {})
+      .finally(() => this.tempoSaving.delete(song.id));
   }
 
   /**
@@ -316,7 +334,9 @@ export class Controller extends EventEmitter<ControllerEvents> {
 
   play(): Promise<void> {
     return this.run(async () => {
-      await this.live.call('play');
+      // "continue" plays from the playhead, which is where Ablcon put it.
+      // Live's plain "play" would start from its insert marker instead.
+      await this.live.call('continue');
     });
   }
 
@@ -329,7 +349,17 @@ export class Controller extends EventEmitter<ControllerEvents> {
         return;
       }
       await this.markStopped();
+      // A song was queued while playing: stopping gets it ready.
+      const here = songAt(this.songs, this.position.beats);
+      if (this.cuedId && this.cuedId !== here?.id && this.songs.some((s) => s.id === this.cuedId)) {
+        await this.prepare(this.cuedId, { jump: true });
+      }
     });
+  }
+
+  /** For tests: stop without the queued-song handling of stop(). */
+  markStoppedForTest(): Promise<void> {
+    return this.run(() => this.markStopped());
   }
 
   /** Stop Live and treat it as stopped right away (the position update lags). */
@@ -359,7 +389,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
       const song = this.song(songId);
       const beats = sectionIndex === undefined ? song.start : this.sectionOf(song, sectionIndex).start;
       await this.prepare(songId, { jump: true, beats });
-      if (!this.position.playing) await this.live.call('play');
+      if (!this.position.playing) await this.live.call('continue');
     });
   }
 

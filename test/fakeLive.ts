@@ -20,6 +20,7 @@ export class FakeLive {
   calls: Array<{ method: string; args: Record<string, unknown> }> = [];
   chunkSize = 6000;
   muted = new Set<number>(); // track indexes muted in the fake mixer
+  insertMarker = 0; // where Live's plain "play" starts from; moving the playhead doesn't change it
   silent = false; // when true, requests are ignored (simulates Live not running)
   ignore = new Set<string>(); // methods to leave unanswered
   private socket = dgram.createSocket('udp4');
@@ -87,7 +88,7 @@ export class FakeLive {
       case 'ping': return { script: 'ablcon', version: 'test', live: '12.0.0' };
       case 'state': return { beats: s.beats, playing: s.playing, tempo: s.tempo, loop: s.loop };
       case 'cues': return { cues: s.cues, songLength: s.songLength };
-      case 'play':
+      case 'play': s.beats = this.insertMarker; s.playing = true; return true; // like Live: from the insert marker
       case 'continue': s.playing = true; return true;
       case 'stop': s.playing = false; return true;
       case 'jump': s.beats = Number(args.beats); return true;

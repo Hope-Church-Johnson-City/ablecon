@@ -96,6 +96,15 @@ test('durations use each song\'s tempo, else Live\'s', () => {
   assert.equal(totalSeconds, 56);
 });
 
+test('a remembered tempo is used when the song has no tempo of its own', () => {
+  let file = sl.reconcile(sl.emptySetlist(), songs).file;
+  file = sl.setSeenTempo(file, 'a', 64); // 32 beats at 64 = 30 s
+  file = sl.setSeenTempo(file, 'b', 5000); // ignored
+  assert.deepEqual(sl.setlistRows(file, songs, 120).rows.map((r) => r.seconds), [30, 16, 8]);
+  file = sl.setTempo(file, 'a', 60); // the setlist tempo wins
+  assert.equal(sl.setlistRows(file, songs, 120).rows[0].seconds, 32);
+});
+
 test('save and load round-trip; bad values in the file are dropped', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'ablcon-'));
   const file = path.join(dir, 'setlist.json');

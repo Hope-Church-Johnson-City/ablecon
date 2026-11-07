@@ -142,8 +142,10 @@ A song with no section locators still gets its sections from the Sections track,
   set. If Live is playing, it becomes **Up next**: at the current song's end, Ablcon goes to it (stopping
   first if there's a STOP marker).
 - **▶ next to a song** jumps straight to it and plays.
-- **Play / Stop.** Pressing Stop while already stopped returns to the start of the current song.
-  The space bar also starts and stops when the page has focus.
+- **Play / Stop.** Play always starts from where the page says the playhead is ("Ready at …"), not
+  from Live's insert marker. Stop while a song is queued gets that song ready (playhead, tempo, key).
+  Pressing Stop while already stopped returns to the start of the current song. The space bar also
+  starts and stops when the page has focus.
 - **Next song** gets the following song in the setlist ready (or queues it while playing).
 - **Sections:** with **Tap jumps**, a section button moves the playhead there and keeps playing.
   With **Tap loops**, it turns on Live's loop around that section (tap again, or **Loop off**, to stop
@@ -154,8 +156,11 @@ A song with no section locators still gets its sections from the Sections track,
   everything in it, just as in Live. Mutes take effect immediately, even mid-song, and changes you make in
   Live show up on every device within a fraction of a second. A track that is silent only because
   another track is soloed says so. **Hide** folds the list away on that device.
-- **Set** in the top bar is the total running time of every song in the setlist. Songs without their own
-  tempo are timed at Live's current tempo. Tempo automation inside a song isn't taken into account.
+- **Set** in the top bar is the total running time of every song in the setlist. A song with its own
+  tempo in the setlist is timed at that tempo. Otherwise Ablcon uses the tempo Live reported when the
+  playhead was last near the song's start, which picks up tempo automation. Songs the playhead hasn't
+  visited yet use Live's current tempo; tap through each song once to make the total exact. Tempo
+  changes in the middle of a song aren't taken into account.
 
 ### When a song ends
 
@@ -353,7 +358,9 @@ Ablcon uses. These still need checking in Live 11 and 12 with a real set:
   that the Pitch MIDI effect reports `class_name` `"MidiPitcher"` with a parameter named `"Pitch"`.
 - That `Track.mute` and `Track.muted_via_solo` behave as expected on audio, MIDI and group tracks, and that
   checking every track's mute state ten times a second costs nothing noticeable in a large set.
-- That moving the playhead while stopped and then pressing Play starts from that point.
+- That **Play** (Live's `continue_playing`) starts from where Ablcon moved the playhead. A first test in
+  Live showed that the plain `start_playing` goes back to the insert marker instead, which is why Ablcon
+  no longer uses it.
 - How far past a song's end Live plays before Ablcon stops it, and whether that is audible.
 - Running time for songs in time signatures other than x/4 (Ablcon assumes Live's beat counts match its BPM).
 - The Mac app: it was built and launched on Apple Silicon and served the page against the fake Live.

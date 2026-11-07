@@ -26,6 +26,7 @@ export interface SetlistEntry {
   name: string; // last known song name, for display when the song goes missing
   tempo: number | null; // BPM, null = leave Live's tempo alone
   semitones: number | null; // -12..12, null = leave pitch alone
+  seenTempo?: number | null; // tempo Live reported near the song's start (tempo automation), for timing
 }
 
 export type EndOfSong = 'stop' | 'next' | 'continue';

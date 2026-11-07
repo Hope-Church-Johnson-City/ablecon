@@ -97,6 +97,13 @@ export function setSemitones(file: SetlistFile, songId: string, semitones: unkno
   return updateEntry(file, songId, { semitones: validateSemitones(semitones) });
 }
 
+/** Remember the tempo Live plays a song at, so the set length is right even with tempo automation. */
+export function setSeenTempo(file: SetlistFile, songId: string, bpm: number): SetlistFile {
+  if (!Number.isFinite(bpm) || bpm < 20 || bpm > 999) return file;
+  const rounded = Math.round(bpm * 100) / 100;
+  return { ...file, entries: file.entries.map((e) => (e.songId === songId ? { ...e, seenTempo: rounded } : e)) };
+}
+
 export function setSettings(file: SetlistFile, patch: Partial<SetlistSettings>): SetlistFile {
   const settings = { ...file.settings };
   if (patch.endOfSong !== undefined) {
@@ -137,7 +144,7 @@ export function setlistRows(file: SetlistFile, songs: Song[], liveTempo: number)
   const rows = file.entries.map((entry): SetlistRow => {
     const song = byId.get(entry.songId);
     if (!song) return { ...entry, missing: true, stopAtEnd: true, originalKey: null, playedKey: null, start: null, end: null, sections: [], seconds: null };
-    const seconds = songSeconds(song, entry.tempo ?? liveTempo);
+    const seconds = songSeconds(song, entry.tempo ?? entry.seenTempo ?? liveTempo);
     total += seconds;
     const originalKey = song.key ? keyName(song.key) : null;
     const playedKey = song.key ? keyName(transposeKey(song.key, entry.semitones ?? 0)) : null;
@@ -158,6 +165,7 @@ export function parseSetlistFile(text: string): SetlistFile {
       name: typeof e.name === 'string' ? e.name : e.songId,
       tempo: safe(() => validateTempo(e.tempo)),
       semitones: safe(() => validateSemitones(e.semitones)),
+      ...seen(e.seenTempo),
     }));
   let file: SetlistFile = { version: 1, entries, settings: { ...DEFAULT_SETTINGS } };
   const saved: Partial<SetlistSettings> = { ...(data.settings ?? {}) };
@@ -170,6 +178,12 @@ export function parseSetlistFile(text: string): SetlistFile {
     }
   }
   return file;
+}
+
+/** Only keep a remembered tempo when it is valid, so files without one stay unchanged. */
+function seen(value: unknown): { seenTempo?: number } {
+  const bpm = safe(() => validateTempo(value));
+  return bpm === null ? {} : { seenTempo: bpm };
 }
 
 function safe<T>(fn: () => T): T | null {

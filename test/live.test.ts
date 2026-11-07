@@ -250,6 +250,74 @@ test('a queued song wins at a STOP-less boundary and playback jumps to it', asyn
   }
 });
 
+test('Play after tapping a song plays that song, not from Live\'s insert marker', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    fake.insertMarker = 0; // Live's insert marker sits at the top of the set, as in the bug report
+    await controller.cue('second');
+    assert.equal(fake.set.beats, 40);
+    await controller.play();
+    assert.equal(fake.set.playing, true);
+    assert.equal(fake.set.beats, 40, 'still at Second, not back at bar 1');
+    await controller.markStoppedForTest();
+    await controller.start('first', 1);
+    assert.equal(fake.set.beats, 16);
+    assert.equal(fake.set.playing, true);
+  } finally {
+    done();
+  }
+});
+
+test('Stop gets a song that was queued while playing ready', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    await controller.setTempo('second', 90);
+    await controller.start('first');
+    fake.set.beats = 6;
+    fake.pushPosition();
+    await until(() => controller.position.beats === 6);
+    await controller.cue('second'); // queued: nothing moves yet
+    assert.equal(fake.set.beats, 6);
+    await controller.stop();
+    assert.equal(fake.set.playing, false);
+    assert.equal(fake.set.beats, 40, 'playhead moved to the queued song');
+    assert.equal(fake.set.tempo, 90);
+  } finally {
+    done();
+  }
+});
+
+test('running times use the tempo Live plays each song at', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    // Tempo automation: Second plays at 60, First at 120.
+    fake.set.beats = 41;
+    fake.set.tempo = 60;
+    fake.pushPosition();
+    await until(() => controller.file.entries.find((e) => e.songId === 'second')?.seenTempo === 60);
+    fake.set.beats = 1;
+    fake.set.tempo = 120;
+    fake.pushPosition();
+    await until(() => controller.file.entries.find((e) => e.songId === 'first')?.seenTempo === 120);
+    const total = controller.snapshot().totalSeconds;
+    assert.equal(total, 32 * 0.5 + 32 * 1); // First 32 beats at 120, Second 32 beats at 60
+    // Live's current tempo no longer changes the set length.
+    fake.set.beats = 20;
+    fake.set.tempo = 200;
+    fake.pushPosition();
+    await until(() => controller.position.tempo === 200);
+    assert.equal(controller.snapshot().totalSeconds, total);
+  } finally {
+    done();
+  }
+});
+
 test('section loop toggles on and off', async () => {
   const { fake, controller, client, done } = await setup();
   try {
@@ -303,7 +371,7 @@ test('a mute is not held up by a slow command in the queue', async () => {
   try {
     await client.start();
     await until(() => controller.tracks.length === 3);
-    fake.ignore.add('play'); // the queued command hangs until it times out (500 ms)
+    fake.ignore.add('continue'); // the queued command hangs until it times out (500 ms)
     let slowDone = false;
     const slow = controller.play().catch(() => {}).finally(() => (slowDone = true));
     await sleep(20);

@@ -71,13 +71,18 @@ class DispatcherTests(unittest.TestCase):
 
     def test_transport(self):
         request(self.d, "jump", {"beats": 200})
-        request(self.d, "play")
+        request(self.d, "continue")  # plays from the playhead
         request(self.d, "tempo", {"bpm": 72})
         self.assertEqual(self.song.current_song_time, 200)
+        self.assertEqual(self.song.calls[-1], "continue_playing")
         self.assertTrue(self.song.is_playing)
         self.assertEqual(self.song.tempo, 72)
         request(self.d, "stop")
         self.assertFalse(self.song.is_playing)
+        request(self.d, "jump", {"beats": 200})
+        request(self.d, "play")  # like Live: from the insert marker, not the playhead
+        self.assertEqual(self.song.current_song_time, 0)
+        request(self.d, "stop")
         self.assertFalse(request(self.d, "tempo", {"bpm": 5})["ok"])
 
     def test_loop(self):
