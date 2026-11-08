@@ -129,6 +129,11 @@ test('presets: every button uses a real action and feedback, and the connection 
   assert.match(presets.song_1.style.text, /\$\(mydeck:song_1\)/);
 });
 
+test("presets: buttons come without Companion's top bar (no page/button number on the key)", () => {
+  const { presets } = presetDefinitions('mydeck');
+  for (const [id, p] of Object.entries(presets)) assert.equal(p.style.show_topbar, false, `${id} hides the top bar`);
+});
+
 // ---- the real module under a stand-in Companion -------------------------------------------
 
 /** Records what the module tells Companion, like Companion's own connection host does. */

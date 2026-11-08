@@ -5,7 +5,7 @@
   "name": "Ablecon",
   "shortname": "ablecon",
   "description": "Control Ablecon (setlists, sections, tempo, key, mutes for Ableton Live) from Companion",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "UNLICENSED",
   "repository": "git+https://github.com/Hope-Church-Johnson-City/ablecon.git",
   "bugs": "https://github.com/Hope-Church-Johnson-City/ablecon/issues",

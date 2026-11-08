@@ -326,7 +326,9 @@ Ablecon the same way the page does, so Companion can run on the same Mac or anot
 what's up next), Next section (counts down; press again to cancel), Loop off, Clear solos; songs 1–12
 with their names (green when playing or ready, orange when up next); sections 1–16 of the current
 song (orange where the playhead is, blue when looping); displays for now playing, key and tempo, set
-length and the Live connection; mute buttons for the click and guide tracks.
+length and the Live connection; mute buttons for the click and guide tracks. They come without Companion's top
+bar (the page and button number at the top of each key). For buttons made before module 1.1.0, set
+**Settings → Buttons → Default decoration** in Companion to **Border (when pressed)**.
 
 **Actions** for your own buttons: play, stop, play/stop, next/previous song, cue or play song number,
 next section, cancel the jump, jump to or loop section number, loop off, mute or solo a track by name

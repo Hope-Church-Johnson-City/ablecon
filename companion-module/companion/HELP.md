@@ -9,7 +9,9 @@ other Companion surface.
 2. Add this connection. If Ablecon runs on the same computer as Companion, keep the address
    `127.0.0.1` and port `8420`. Otherwise enter the address Ablecon shows under
    **File → Open on Other Devices** (e.g. `192.168.1.20`, port `8420`).
-3. Open **Presets → Ablecon** and drag buttons onto your Stream Deck.
+3. Open **Presets → Ablecon** and drag buttons onto your Stream Deck. They come without Companion's top
+   bar (the page and button number). Buttons set up before module 1.1.0 keep it; to remove it from all
+   buttons, set **Settings → Buttons → Default decoration** to **Border (when pressed)** or **None**.
 
 ### Ready-made buttons (Presets)
 
