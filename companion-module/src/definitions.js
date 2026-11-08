@@ -87,7 +87,8 @@ function button(name, text, actionId, options = {}, feedbacks = [], style = {}) 
   return {
     type: 'simple',
     name,
-    style: { text, size: 'auto', color: WHITE, bgcolor: GREY, ...style },
+    // show_topbar: false leaves off Companion's bar with the button's page/number at the top.
+    style: { text, size: 'auto', color: WHITE, bgcolor: GREY, show_topbar: false, ...style },
     steps: [{ down: actionId ? [{ actionId, options }] : [], up: [] }],
     feedbacks,
   };
