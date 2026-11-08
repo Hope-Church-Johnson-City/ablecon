@@ -385,6 +385,13 @@ gh pr create --repo Hope-Church-Johnson-City/ablecon --base main
 The hooks in `.githooks/` (enabled by `npm install`) refuse commits on `main` and any direct push to
 the church repo.
 
+**Versions** follow [semantic versioning](https://semver.org) (MAJOR.MINOR.PATCH, in `package.json`):
+bump PATCH for a bug fix, MINOR for a new feature that works with existing setlists, Remote Script and
+Stream Deck setups, MAJOR for anything people must redo or reinstall, and add a line to
+[CHANGELOG.md](CHANGELOG.md). `npm version <x.y.z> --no-git-tag-version` sets it. Which version a
+computer runs is shown in **Ablecon → About Ablecon** and at the bottom of **Settings** on any device,
+next to the Remote Script version.
+
 ## Running from source
 
 Needs Node.js 22.18 or newer (Node runs the TypeScript directly) and Python 3 for the tests.

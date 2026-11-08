@@ -258,6 +258,11 @@ async function main() {
     const back = document.documentElement.dataset.look === 'live' && localStorage.getItem('ablecon.look') === 'live';
     return blackout && stage && back || JSON.stringify({ blackout, stage, back });`);
 
+  const appVersion = JSON.parse(await (await import('node:fs/promises')).readFile(path.join(root, 'package.json'), 'utf8')).version;
+  await check('Settings shows the Ablecon and Remote Script versions', `
+    const text = $('#version').textContent;
+    return text === 'Ablecon ${appVersion} · Remote Script ' + state.scriptVersion && /^\\d+\\.\\d+\\.\\d+$/.test(state.scriptVersion) || text;`);
+
   await check('no outdated-Remote-Script warning with the current script', `
     return $('#scriptWarn').classList.contains('hidden') || $('#scriptWarn').textContent;`);
 
