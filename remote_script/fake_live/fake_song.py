@@ -4,6 +4,8 @@ Used by the Python unit tests and by fake_live_server.py, which lets you run
 the Ablecon server and web UI without Ableton Live.
 """
 
+import os
+
 
 class CuePoint(object):
     def __init__(self, name, time):
@@ -35,14 +37,49 @@ def pitch_device(name="Pitch"):
     ])
 
 
+class WarpMarker(object):
+    def __init__(self, beat_time, sample_time):
+        self.beat_time = float(beat_time)
+        self.sample_time = float(sample_time)  # seconds into the audio file, as in Live
+
+
 class Clip(object):
-    def __init__(self, name, start, end, audio=True, warping=True, pitch=0):
+    def __init__(self, name, start, end, audio=True, warping=True, pitch=0, file_path=None,
+                 start_marker=0.0, warp_markers=None):
         self.name = name
         self.start_time = float(start)
         self.end_time = float(end)
         self.is_audio_clip = audio
         self.warping = warping
         self._pitch = pitch
+        self.muted = False
+        self.looping = False
+        self.loop_start = float(start_marker)
+        self.loop_end = float(start_marker) + (self.end_time - self.start_time)
+        self.start_marker = float(start_marker)
+        self.end_marker = self.loop_end
+        self.gain = 0.4
+        if audio:
+            # Live gives every audio clip its file and (for warped audio) warp
+            # markers; here the audio was recorded at 120 BPM by default.
+            self._file = file_path or "/Audio/%s.wav" % name
+            self._warp = warp_markers if warp_markers is not None else [
+                WarpMarker(0, 0), WarpMarker(self.loop_end, self.loop_end * 0.5)]
+        else:
+            self._file = None
+            self._warp = []
+
+    @property
+    def file_path(self):
+        if not self.is_audio_clip:
+            raise AttributeError("MIDI clips have no file_path")
+        return self._file
+
+    @property
+    def warp_markers(self):
+        if not self.is_audio_clip:
+            raise AttributeError("MIDI clips have no warp_markers")
+        return self._warp
 
     @property
     def pitch_coarse(self):
@@ -224,10 +261,11 @@ def demo_song():
     return Song(cues, tracks, tempo=120.0, song_length=408.0)
 
 
-def plain_song():
+def plain_song(audio_dir=None):
     """Laid out like a typical worship multitrack set: plain song locators with
     the key in brackets, STOP markers, a MIDI "Sections" track whose clips name
-    the parts, click and guide tracks, and one group of stems per song."""
+    the parts, click and guide tracks, and one group of stems per song.
+    With `audio_dir`, every stem of a song plays the file <audio_dir>/<song>.wav."""
     cues = [
         CuePoint("Morning Light (G)", 0),
         CuePoint("STOP", 135),
@@ -255,6 +293,8 @@ def plain_song():
         tracks.append(group)
         for stem in ("Drums", "Perc", "Loop", "Bass", "Synth Bass", "AG", "EG 1", "EG 2", "EG 3",
                      "Piano", "Keys 1", "Keys 2", "Synth Pad", "Organ", "Strings", "BGVS", "Choir"):
-            tracks.append(Track(stem, group=group, clips=[Clip("%s %s" % (title, stem), start, end)]))
+            audio = os.path.join(audio_dir, title + ".wav") if audio_dir else None
+            tracks.append(Track(stem, group=group, clips=[Clip("%s %s" % (title, stem), start, end,
+                                                               file_path=audio)]))
     return Song(cues, tracks, tempo=72.0, song_length=395.0,
                 tempo_map=[(0, 72.0), (140, 128.0), (263, 68.0)])

@@ -145,6 +145,19 @@ A song with no section locators still gets its sections from the Sections track,
 
 ## Using it
 
+- **The waveform** under the song's title shows the whole song: every stem mixed into one outline,
+  over a coloured band for each section with its name (verse blue, pre-chorus yellow, chorus orange,
+  bridge purple, instrumental or interlude green, tag or outro pink, intro and others grey), faint bar
+  lines and a white playhead. The part already played is bright. Ablecon reads the audio files behind
+  the song's clips (with macOS's own `afconvert`) and lines them up with the bars using Live's warp
+  markers, so it matches the arrangement whatever the tempo. Click and guide tracks, the Sections
+  track, and muted tracks and clips are left out, so it shows what the room hears. The first time a set
+  is opened this takes a few seconds (about 7 for a four-song set); what was read is kept in an
+  `ablecon-waveforms` folder next to the setlist file, and a file is only read again if it changes.
+  Your audio files are only read, never changed. Until a song's waveform is ready (or if an audio file
+  can't be read, for example one in iCloud that isn't downloaded) you see a plain line with the
+  section bands. Tapping the waveform does nothing, so a stray tap can't move the song. Needs Remote
+  Script 1.5.0 or newer.
 - **Tap a song** to get it ready. If Live is stopped, the playhead moves to it and its tempo and key are
   set. If Live is playing, it becomes **Up next**: at the current song's end, Ablecon goes to it (stopping
   first if there's a STOP marker).
@@ -418,6 +431,7 @@ src/setlist.ts         Setlist order, tempo, key, durations, JSON file
 src/planning.ts        Tempo/key planning, what is safe to change while playing, end-of-song logic
 src/liveClient.ts      Talks to the Remote Script (requests, chunked replies, position pushes)
 src/osc.ts             OSC 1.0 message encoder/decoder
+src/waveform.ts        Song waveforms: reads stems (afconvert), lines them up with warp markers, mixes them
 public/                Control page (plain HTML/CSS/JS, no build step)
 remote_script/Ablecon/  The Remote Script that runs inside Live
 remote_script/fake_live/  Fake Live set + UDP server for development and tests
@@ -439,12 +453,13 @@ OSC messages over UDP on 127.0.0.1. The script listens on port 11100 and replies
 Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `tempo {bpm}`,
 `loop {start, length, enabled}`, `tracks {start, end}`, `apply {ops}`, `mixer`,
 `mute {track, trackName, muted}`, `solo {track, trackName, soloed}`, `clear_solos`, `play_from {beats}`,
-`restore_tempo`, `jump_at {at, to}`, `cancel_jump`. Replies are split into chunks of
+`restore_tempo`, `jump_at {at, to}`, `cancel_jump`, `audio_clips {start, end}` (each audio clip's file,
+start marker, warp markers and mute, for the waveform). Replies are split into chunks of
 6000 ASCII characters to stay under macOS's 9216-byte UDP datagram limit.
 
 ### Tests
 
-`npm run check` runs everything below, plus the page check (`scripts/ui-check.mjs`), which opens the real page in a hidden window against the fake Live and checks each feature: songs, keys and tempos from markers, sections, cueing, Play position, Up next, key and tempo editing, Next section, groups, mute and solo, looks, phone layout and page errors. It runs:
+`npm run check` runs everything below, plus the page check (`scripts/ui-check.mjs`), which opens the real page in a hidden window against the fake Live and checks each feature: songs, keys and tempos from markers, sections, cueing, Play position, Up next, key and tempo editing, Next section, groups, mute and solo, looks, the waveform, phone layout and page errors. It runs:
 
 - **OSC encoding**: known bytes, every argument type, malformed input (Node and Python).
 - **Locator parsing**: both layouts, including the locators and Sections clips of a real worship set,
@@ -462,6 +477,11 @@ Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `t
 - **Against a fake Live over real UDP**: request/response, chunked replies, timeouts, position pushes,
   cueing, queued songs while playing, stop at song end, section loops.
 - **End to end with the real Remote Script handlers** running in Python against a fake Live set.
+- **Waveform**: warp-marker timing (with markers from a real set), split stems that start partway into
+  their file, unwarped and looped clips, mixing stems, leaving out click/guide/Sections and muted audio,
+  reading WAV data, reading real files with `afconvert` and the saved copies, rebuilding only when stems
+  change, and old Remote Scripts or unreadable audio. The page check plays the fake set's stems from
+  generated audio (silent half, loud half) and checks the drawing follows it.
 - **Remote Script** (Python): request handling, track/clip/device reporting, applying changes, mutes, chunking.
 
 ---
@@ -470,7 +490,10 @@ Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `t
 
 Most of Ablecon was tested against fakes that model the parts of Live's API it uses. Checked in a real
 Live set so far: the Remote Script loads and connects, locators and the Sections track are read
-correctly, the track list and mutes, and starting playback exactly at a song or section.
+correctly, the track list and mutes, and starting playback exactly at a song or section. The waveform
+was built for all four songs of a real set (44 stems, .m4a and .wav) and looked right by eye, but not yet
+watched against the playhead during real playback. Waveforms are rebuilt when locators change, when Live
+reconnects or with **Settings → Re-read locators**; moving or editing stems alone doesn't trigger it.
 
 How Ablecon starts playback, learned from testing in Live: moving the playhead while Live is stopped
 changes only the display. Live's Play starts from its start marker, and "continue" starts where

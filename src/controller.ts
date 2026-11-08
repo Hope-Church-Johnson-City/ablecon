@@ -11,7 +11,7 @@ import * as store from './store.ts';
  * The Remote Script version this app expects (keep equal to SCRIPT_VERSION in
  * remote_script/Ablecon/handlers.py; a test checks this).
  */
-export const EXPECTED_SCRIPT_VERSION = '1.4.1';
+export const EXPECTED_SCRIPT_VERSION = '1.5.0';
 
 /** True when Live is running an older Ablecon Remote Script than this app needs. */
 export function isOlderScript(running: string | null): boolean {
@@ -49,6 +49,7 @@ export interface ControllerEvents {
   state: [];
   position: [Position];
   notice: [Notice];
+  songs: []; // the song list was read again from Live
 }
 
 const STOPPED: Position = { beats: 0, playing: false, tempo: 120, loop: { enabled: false, start: 0, length: 0 } };
@@ -193,6 +194,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
       await this.scanTempos();
       await this.refreshTracks();
       this.emit('state');
+      this.emit('songs');
     });
   }
 

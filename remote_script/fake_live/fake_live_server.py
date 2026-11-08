@@ -28,9 +28,11 @@ def main():
     parser.add_argument("--set", choices=["plain", "marked"], default="plain",
                         help="plain: song locators + STOP + Sections track (default); "
                              "marked: *Song locators with section locators")
+    parser.add_argument("--audio-dir", default=None,
+                        help="plain set only: stems play <dir>/<song>.wav (for waveform checks)")
     opts = parser.parse_args()
 
-    song = plain_song() if opts.set == "plain" else demo_song()
+    song = plain_song(opts.audio_dir) if opts.set == "plain" else demo_song()
     dispatcher = Dispatcher(song, "fake", lambda m: print(m, file=sys.stderr))
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("127.0.0.1", opts.port))

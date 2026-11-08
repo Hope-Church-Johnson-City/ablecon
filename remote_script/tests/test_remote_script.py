@@ -208,6 +208,29 @@ class DispatcherTests(unittest.TestCase):
         self.assertEqual(synth["pitchDevices"][0]["params"][1]["name"], "Pitch")
         self.assertTrue(res[2]["isGroup"])
 
+    def test_audio_clips_report_their_files_and_warp_markers(self):
+        res = request(self.d, "audio_clips", {"start": 200, "end": 312})["result"]["tracks"]
+        names = [t["name"] for t in res]
+        # Audio clips only: no group, no MIDI track, nothing outside the range.
+        self.assertEqual(names, ["Click [nokey]", "Guide [nokey]", "Keys", "Pad"])
+        keys = res[2]
+        self.assertEqual(keys["parents"], ["Stems"])
+        self.assertFalse(keys["muted"])
+        clip = keys["clips"][0]
+        self.assertEqual(clip["name"], "Keys RW")
+        self.assertEqual(clip["file"], "/Audio/Keys RW.wav")
+        self.assertEqual((clip["start"], clip["end"], clip["startMarker"]), (200.0, 312.0, 0.0))
+        self.assertTrue(clip["warping"])
+        self.assertEqual(clip["warpMarkers"], [{"beat": 0.0, "seconds": 0.0}, {"beat": 112.0, "seconds": 56.0}])
+        self.assertFalse(res[3]["clips"][0]["warping"])
+
+    def test_audio_clips_report_mutes(self):
+        self.song.tracks[3].mute = True
+        self.song.tracks[4]._clips[1].muted = True
+        res = request(self.d, "audio_clips", {"start": 200, "end": 312})["result"]["tracks"]
+        self.assertTrue(res[2]["muted"])
+        self.assertTrue(res[3]["clips"][0]["muted"])
+
     def test_apply_ops(self):
         ops = [
             {"kind": "clip", "track": 3, "trackName": "Keys", "clip": 1, "start": 200, "pitch": 2},

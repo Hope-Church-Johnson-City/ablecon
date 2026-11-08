@@ -73,6 +73,9 @@ Jeremy asks; otherwise commit on the branch locally and say it's ready for a pul
   under a stand-in Companion; Ablecon's button commands (next/previous song, song/section number,
   play toggle, mute/solo by name). Loaded in Jeremy's Companion from `~/Companion Modules/ablecon`
   (a link to `companion-module/`).
+- Waveform in the now panel: all stems mixed (not click/guide/Sections/muted), lined up by warp
+  markers, section bands and names, bar lines, played part bright; built in the background with
+  `afconvert`, cached in `ablecon-waveforms/` next to the setlist; plain line until ready.
 - Section loops, six looks (per device; **Ableton** is the default), outdated Remote Script warning,
   phone layout.
 
