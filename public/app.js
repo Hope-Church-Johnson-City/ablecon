@@ -127,6 +127,7 @@ function render() {
     warn.textContent = `Live is running an older Ablecon Remote Script (${state.scriptVersion}). Some features won't work until you update it: on the Mac running Live, choose File → Install Remote Script in Ableton Live…, then restart Live.`;
   }
   $('#setLength').textContent = clock(state.totalSeconds);
+  $('#version').textContent = `Ablecon ${state.appVersion || ''}` + (state.scriptVersion ? ` · Remote Script ${state.scriptVersion}` : '');
   $('#endOfSong').value = state.settings.endOfSong;
   $('#jumpBars').value = String(state.settings.jumpBars ?? 2);
   if (document.activeElement !== $('#noKeyTag')) $('#noKeyTag').value = state.settings.noKeyTag;

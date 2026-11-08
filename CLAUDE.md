@@ -28,6 +28,25 @@ OK). Then do steps 3–6 without asking: push the branch, open the pull request,
 this Mac and the fork up to date. Still never push or merge work that isn't finished or that fails
 the checks.
 
+## Versions: semantic versioning (from Brant)
+
+Ablecon's version is `"version"` in `package.json` (shown in **About Ablecon** and at the bottom of the
+page's Settings, and in the installer's name), written `MAJOR.MINOR.PATCH`. Every pull request that
+changes what Jeremy installs bumps it, in the same pull request:
+
+- **PATCH** (1.1.0 → 1.1.1): bug fixes only; nothing new to learn.
+- **MINOR** (1.1.1 → 1.2.0): a new feature or changed behaviour that still works with existing setlist
+  files, the installed Remote Script and the Stream Deck setup. Reset PATCH to 0.
+- **MAJOR** (1.2.0 → 2.0.0): something that breaks what's there: a setlist file older versions can't
+  read, a removed feature, Stream Deck buttons that must be redone, a Remote Script older apps can't use.
+  Reset MINOR and PATCH to 0.
+
+Keep `package-lock.json`'s version in step (`npm version <x.y.z> --no-git-tag-version` does both), and
+add an entry at the top of `CHANGELOG.md` in plain words. Changes to only tests, docs or these rules
+don't bump. The Remote Script (`SCRIPT_VERSION`) and the Companion module
+(`companion-module/package.json` and `companion/manifest.json`, kept equal) have their own versions,
+bumped by the same rules when they change. `test/version.test.ts` checks all of this.
+
 ## Every change
 
 1. **`npm run check` must pass before anything is committed.** It runs the type check, the server

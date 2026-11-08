@@ -8,6 +8,7 @@ import { promises as fs } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Controller } from './controller.ts';
 import { LiveClient } from './liveClient.ts';
+import { APP_VERSION } from './version.ts';
 import { EnvelopeCache, Waveforms } from './waveform.ts';
 
 export interface ServerOptions {
@@ -96,7 +97,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const live = new LiveClient({ port: opts.livePort ?? 11100 });
   const controller = new Controller(live, opts.setlistPath);
   await controller.init();
-  const snapshot = () => ({ ...controller.snapshot(), waveforms: waveforms.versions() });
+  const snapshot = () => ({ ...controller.snapshot(), appVersion: APP_VERSION, waveforms: waveforms.versions() });
   const waveforms = new Waveforms(
     live,
     new EnvelopeCache(opts.waveformDir ?? path.join(path.dirname(opts.setlistPath), 'ablecon-waveforms')),
