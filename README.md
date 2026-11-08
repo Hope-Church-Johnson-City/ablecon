@@ -303,6 +303,42 @@ used: songs from other sets that have no tempo or key are dropped.
 
 ---
 
+## Stream Deck (Bitfocus Companion)
+
+The `companion-module/` folder is a module for [Bitfocus Companion](https://bitfocus.io/companion)
+(5.1 or newer) that controls Ablecon from a Stream Deck or any other Companion surface. It talks to
+Ablecon the same way the page does, so Companion can run on the same Mac or another computer.
+
+**Ready-made buttons** (Buttons → Presets → ablecon): Play/Stop, Play, Stop, Previous/Next song (shows
+what's up next), Next section (counts down; press again to cancel), Loop off, Clear solos; songs 1–12
+with their names (green when playing or ready, orange when up next); sections 1–16 of the current
+song (orange where the playhead is, blue when looping); displays for now playing, key and tempo, set
+length and the Live connection; mute buttons for the click and guide tracks.
+
+**Actions** for your own buttons: play, stop, play/stop, next/previous song, cue or play song number,
+next section, cancel the jump, jump to or loop section number, loop off, mute or solo a track by name
+(with an optional group name), clear solos, re-read locators. **Variables** such as
+`$(ablecon:song_name)`, `section_name`, `up_next`, `remaining`, `song_key`, `song_tempo`,
+`jump_countdown` and `song_1`…`song_24` can go in any button's text.
+
+### Installing the module
+
+Companion loads it from a *developer modules* folder (no packaging needed):
+
+1. Install the module's libraries once: `npm install` in the project (or `npm install` inside
+   `companion-module/`).
+2. Make a folder for Companion modules, e.g. `~/Companion Modules`, and put the `companion-module`
+   folder in it (a copy, or a link: `ln -s ~/Projects/ablcon/companion-module ~/Companion\ Modules/ablecon`).
+3. In Companion's launcher window, click the cog → **Advanced Settings** → **Developer** → **Select**
+   that folder, and turn on **Enable Developer Modules**.
+4. Open Companion's page → **Connections** → **Add Connection** → **Ablecon**. Keep address
+   `127.0.0.1` and port `8420` if Ablecon runs on the same computer; otherwise use the address from
+   Ablecon's **File → Open on Other Devices**.
+
+Companion reloads the module by itself when its files change. (Companion's packaging tool,
+`npm run companion:package`, only builds modules under an open-source licence such as MIT, so this
+module isn't packaged as a single file.)
+
 ## Troubleshooting
 
 - **Dot stays red ("Live not found")**: check that Ablecon is chosen as a Control Surface in Live, and

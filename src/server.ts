@@ -47,6 +47,10 @@ export function lanUrls(port: number): string[] {
 
 type Command = { id?: number; action: string; [key: string]: unknown };
 
+function mode(v: unknown): 'on' | 'off' | 'toggle' {
+  return v === 'on' || v === 'off' ? v : 'toggle';
+}
+
 async function dispatch(c: Controller, cmd: Command): Promise<void> {
   const id = String(cmd.songId ?? '');
   const n = (v: unknown) => Number(v);
@@ -71,6 +75,16 @@ async function dispatch(c: Controller, cmd: Command): Promise<void> {
     case 'mute': return c.setMute(n(cmd.track), String(cmd.name ?? ''), Boolean(cmd.muted));
     case 'solo': return c.setSolo(n(cmd.track), String(cmd.name ?? ''), Boolean(cmd.soloed));
     case 'clearSolos': return c.clearSolos();
+    // Simple commands for button boxes (Stream Deck via Companion).
+    case 'nextSong': return c.nextSong();
+    case 'previousSong': return c.previousSong();
+    case 'cueNumber': return c.cueNumber(n(cmd.number));
+    case 'startNumber': return c.startNumber(n(cmd.number));
+    case 'sectionNumber': return c.sectionNumber(n(cmd.number));
+    case 'loopNumber': return c.loopNumber(n(cmd.number));
+    case 'togglePlay': return c.togglePlay();
+    case 'muteByName': return c.muteByName(String(cmd.name ?? ''), String(cmd.group ?? ''), mode(cmd.mode));
+    case 'soloByName': return c.soloByName(String(cmd.name ?? ''), String(cmd.group ?? ''), mode(cmd.mode));
     default: throw new Error(`unknown action "${cmd.action}"`);
   }
 }

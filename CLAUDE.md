@@ -68,6 +68,11 @@ Jeremy asks; otherwise commit on the branch locally and say it's ready for a pul
   buttons per track and group, Clear solos.
 - Edit mode: controls never move when a value changes (Key on its own fixed line, fixed-width value,
   Off/Apply space always reserved, fixed-shape title row); nothing sticks out of a song box.
+- Stream Deck: the Companion module in `companion-module/` (Companion 5.1+, module API 2.2): presets,
+  actions, feedbacks and variables, tested in `test/companion.test.mjs` with the real module class
+  under a stand-in Companion; Ablecon's button commands (next/previous song, song/section number,
+  play toggle, mute/solo by name). Loaded in Jeremy's Companion from `~/Companion Modules/ablecon`
+  (a link to `companion-module/`).
 - Section loops, six looks (per device; **Ableton** is the default), outdated Remote Script warning,
   phone layout.
 
@@ -75,4 +80,5 @@ Jeremy asks; otherwise commit on the branch locally and say it's ready for a pul
 
 `src/` server (TypeScript, run directly by Node), `public/` page, `app/main.js` Mac app (Electron),
 `remote_script/Ablecon/` the script inside Live, `test/` and `remote_script/tests/` tests,
-`scripts/ui-check.mjs` page check. See README.md for the full description.
+`scripts/ui-check.mjs` page check, `companion-module/` the Stream Deck (Companion) module. See README.md
+for the full description.

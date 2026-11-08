@@ -1,0 +1,17 @@
+{
+  "name": "ablecon",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/main.js",
+  "license": "UNLICENSED",
+  "scripts": {
+    "package": "companion-module-build"
+  },
+  "dependencies": {
+    "@companion-module/base": "2.2.2"
+  },
+  "devDependencies": {
+    "@companion-module/tools": "3.2.0"
+  }
+}
