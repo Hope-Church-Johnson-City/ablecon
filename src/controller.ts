@@ -11,7 +11,7 @@ import * as store from './store.ts';
  * The Remote Script version this app expects (keep equal to SCRIPT_VERSION in
  * remote_script/Ablecon/handlers.py; a test checks this).
  */
-export const EXPECTED_SCRIPT_VERSION = '1.4.1';
+export const EXPECTED_SCRIPT_VERSION = '1.5.0';
 
 /** True when Live is running an older Ablecon Remote Script than this app needs. */
 export function isOlderScript(running: string | null): boolean {
@@ -49,6 +49,7 @@ export interface ControllerEvents {
   state: [];
   position: [Position];
   notice: [Notice];
+  songs: []; // the song list was read again from Live
 }
 
 const STOPPED: Position = { beats: 0, playing: false, tempo: 120, loop: { enabled: false, start: 0, length: 0 } };
@@ -193,6 +194,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
       await this.scanTempos();
       await this.refreshTracks();
       this.emit('state');
+      this.emit('songs');
     });
   }
 
@@ -695,9 +697,11 @@ export class Controller extends EventEmitter<ControllerEvents> {
       const same = loop.enabled && Math.abs(loop.start - section.start) < 1e-3 && Math.abs(loop.length - (section.end - section.start)) < 1e-3;
       if (same) {
         await this.live.call('loop', { enabled: false });
+        this.position = { ...this.position, loop: { ...loop, enabled: false } }; // Live's report lags a tick
         return;
       }
       await this.live.call('loop', { start: section.start, length: section.end - section.start, enabled: true });
+      this.position = { ...this.position, loop: { enabled: true, start: section.start, length: section.end - section.start } };
       const inside = this.position.beats >= section.start && this.position.beats < section.end;
       if (!inside && !this.position.playing) await this.live.call('jump', { beats: section.start });
     });
@@ -706,6 +710,7 @@ export class Controller extends EventEmitter<ControllerEvents> {
   loopOff(): Promise<void> {
     return this.run(async () => {
       await this.live.call('loop', { enabled: false });
+      this.position = { ...this.position, loop: { ...this.position.loop, enabled: false } };
     });
   }
 
@@ -752,6 +757,116 @@ export class Controller extends EventEmitter<ControllerEvents> {
   /** Apply a song's key now (the safe parts, if Live is playing). */
   applyKeyNow(songId: string): Promise<void> {
     return this.run(() => this.applyKey(songId));
+  }
+
+  // ---- simple commands for button boxes (Stream Deck via Companion) ----------
+
+  /** Setlist song ids, in order, that are in the open Live set. */
+  playableSongIds(): string[] {
+    return this.file.entries.map((e) => e.songId).filter((id) => this.songs.some((s) => s.id === id));
+  }
+
+  /** The song "this song" buttons act on: the one playing (or under the playhead), else the cued one, else the first. */
+  focusSongId(): string | null {
+    const here = songAt(this.songs, this.position.beats);
+    if (here) return here.id;
+    if (this.cuedId && this.songs.some((s) => s.id === this.cuedId)) return this.cuedId;
+    return this.playableSongIds()[0] ?? null;
+  }
+
+  /** Get the song after the current one ready (queued if Live is playing), like the page's Next song. */
+  nextSong(): Promise<void> {
+    const ids = this.playableSongIds();
+    const base = this.focusSongId();
+    const next = base ? ids[ids.indexOf(base) + 1] : ids[0];
+    if (!next) return Promise.reject(new Error('This is the last song in the setlist.'));
+    return this.cue(next);
+  }
+
+  /** Get the song before the current one ready. */
+  previousSong(): Promise<void> {
+    const ids = this.playableSongIds();
+    const base = this.focusSongId();
+    const i = base ? ids.indexOf(base) : -1;
+    if (i <= 0) return Promise.reject(new Error('This is the first song in the setlist.'));
+    return this.cue(ids[i - 1]);
+  }
+
+  private songNumber(n: number): string {
+    const ids = this.playableSongIds();
+    if (!Number.isInteger(n) || n < 1 || n > ids.length) throw new Error(`There is no song ${n} in the setlist (it has ${ids.length}).`);
+    return ids[n - 1];
+  }
+
+  /** Cue setlist song number n (1 = first). */
+  cueNumber(n: number): Promise<void> {
+    try {
+      return this.cue(this.songNumber(n));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /** Play setlist song number n from its start. */
+  startNumber(n: number): Promise<void> {
+    try {
+      return this.start(this.songNumber(n));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  private focusSong(): Song {
+    const id = this.focusSongId();
+    if (!id) throw new Error('No song is open.');
+    return this.song(id);
+  }
+
+  /** Jump to section number n (1 = first) of the current song. */
+  sectionNumber(n: number): Promise<void> {
+    try {
+      const song = this.focusSong();
+      return this.jumpToSection(song.id, n - 1);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /** Loop (or stop looping) section number n of the current song. */
+  loopNumber(n: number): Promise<void> {
+    try {
+      const song = this.focusSong();
+      return this.toggleLoop(song.id, n - 1);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /** Play if stopped, stop if playing. */
+  togglePlay(): Promise<void> {
+    return this.position.playing ? this.stop() : this.play();
+  }
+
+  /** Find a track by its name (and optionally its group's name), ignoring case. */
+  private trackByName(name: string, group = ''): MixerTrack {
+    const n = name.trim().toLowerCase();
+    const g = group.trim().toLowerCase();
+    const matches = this.tracks.filter((t) => t.name.trim().toLowerCase() === n && (!g || (t.parents[0] ?? '').trim().toLowerCase() === g));
+    if (matches.length === 0) throw new Error(`No track called "${name}"${group ? ` in "${group}"` : ''}.`);
+    if (matches.length > 1) throw new Error(`More than one track is called "${name}"; also give its group's name.`);
+    return matches[0];
+  }
+
+  /** Mute, unmute or toggle a track by name. */
+  async muteByName(name: string, group: string, mode: 'on' | 'off' | 'toggle'): Promise<void> {
+    const t = this.trackByName(name, group);
+    await this.setMute(t.index, t.name, mode === 'toggle' ? !t.muted : mode === 'on');
+  }
+
+  /** Solo, unsolo or toggle a track by name. */
+  async soloByName(name: string, group: string, mode: 'on' | 'off' | 'toggle'): Promise<void> {
+    const t = this.trackByName(name, group);
+    await this.setSolo(t.index, t.name, mode === 'toggle' ? !t.soloed : mode === 'on');
   }
 
   updateSettings(patch: Partial<SetlistSettings>): Promise<void> {

@@ -781,3 +781,62 @@ test('the page is told when Live runs an older Remote Script', async () => {
     done();
   }
 });
+
+// ---- commands for button boxes (Stream Deck via Companion) ----------------------
+
+test('button commands: next/previous song, song number, section number, play toggle', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.songs.length === 2);
+    assert.deepEqual(controller.playableSongIds(), ['first', 'second']);
+    await controller.nextSong();
+    assert.equal(fake.set.beats, 40, 'Second cued');
+    await assert.rejects(controller.nextSong(), /last song/);
+    await controller.previousSong();
+    assert.equal(fake.set.beats, 0, 'back to First');
+    await assert.rejects(controller.previousSong(), /first song/);
+    await controller.cueNumber(2);
+    assert.equal(fake.set.beats, 40);
+    await assert.rejects(controller.cueNumber(3), /no song 3/);
+    await controller.sectionNumber(2); // Second's Chorus
+    assert.equal(fake.set.beats, 56);
+    await assert.rejects(controller.sectionNumber(9), /no section 9/);
+    await controller.loopNumber(1);
+    assert.deepEqual(fake.set.loop, { enabled: true, start: 40, length: 16 });
+    await controller.loopNumber(1);
+    assert.equal(fake.set.loop.enabled, false);
+    await controller.startNumber(1);
+    assert.equal(fake.set.playing, true);
+    assert.equal(fake.set.beats, 0);
+    await controller.togglePlay();
+    assert.equal(fake.set.playing, false);
+    await controller.togglePlay();
+    assert.equal(fake.set.playing, true);
+  } finally {
+    done();
+  }
+});
+
+test('button commands: mute and solo a track by name', async () => {
+  const { fake, controller, client, done } = await setup();
+  try {
+    await client.start();
+    await until(() => controller.tracks.length === 3);
+    await controller.muteByName('keys', '', 'toggle');
+    assert.ok(fake.muted.has(1), 'name matching ignores case');
+    await controller.muteByName('Keys', '', 'toggle');
+    assert.ok(!fake.muted.has(1));
+    await controller.muteByName('Keys', '', 'on');
+    await controller.muteByName('Keys', '', 'on');
+    assert.ok(fake.muted.has(1), '"on" stays on');
+    await controller.muteByName('Keys', '', 'off');
+    assert.ok(!fake.muted.has(1));
+    await controller.soloByName('Synth', '', 'toggle');
+    assert.ok(fake.soloed.has(2));
+    await assert.rejects(controller.muteByName('Tuba', '', 'on'), /No track called "Tuba"/);
+    await assert.rejects(controller.muteByName('Keys', 'Wrong Group', 'on'), /in "Wrong Group"/);
+  } finally {
+    done();
+  }
+});

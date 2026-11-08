@@ -5,3 +5,6 @@ __pycache__/
 .DS_Store
 dist/
 release/
+companion-module/*.tgz
+companion-module/pkg/
+ablecon-waveforms/

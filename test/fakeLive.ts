@@ -164,6 +164,7 @@ export class FakeLive {
       case 'loop':
         if (args.start !== undefined) s.loop = { ...s.loop, start: Number(args.start), length: Number(args.length) };
         s.loop.enabled = Boolean(args.enabled);
+        this.autoPush();
         return true;
       case 'tracks': {
         const start = Number(args.start);

@@ -5,7 +5,7 @@ something JSON-serialisable. Nothing here imports Live modules, so the same
 code runs under the unit tests with a fake Song.
 """
 
-SCRIPT_VERSION = "1.4.1"
+SCRIPT_VERSION = "1.5.0"
 
 # Class name Live reports for its built-in "Pitch" MIDI effect.
 PITCH_DEVICE_CLASS = "MidiPitcher"
@@ -357,6 +357,56 @@ def clear_solos(song, args):
     return {"cleared": cleared}
 
 
+def _warp_markers(clip):
+    markers = []
+    for m in _safe(lambda: list(clip.warp_markers), []) or []:
+        bt = _safe(lambda: m.beat_time)
+        st = _safe(lambda: m.sample_time)
+        if bt is not None and st is not None:
+            markers.append({"beat": bt, "seconds": st})
+    return markers
+
+
+def audio_clips(song, args):
+    """Audio clips in a beat range with where their audio comes from, for drawing a waveform."""
+    start = _num(args, "start")
+    end = _num(args, "end")
+    result = []
+    for t_index, track in enumerate(song.tracks):
+        if _safe(lambda: track.is_foldable, False):
+            continue
+        clips = []
+        for clip in _safe(lambda: list(track.arrangement_clips), []):
+            if not _safe(lambda: clip.is_audio_clip, False):
+                continue
+            if clip.end_time <= start or clip.start_time >= end:
+                continue
+            clips.append({
+                "name": clip.name,
+                "start": clip.start_time,
+                "end": clip.end_time,
+                "file": _safe(lambda: clip.file_path),
+                "warping": bool(_safe(lambda: clip.warping, False)),
+                "startMarker": _safe(lambda: clip.start_marker),
+                "endMarker": _safe(lambda: clip.end_marker),
+                "looping": bool(_safe(lambda: clip.looping, False)),
+                "loopStart": _safe(lambda: clip.loop_start),
+                "loopEnd": _safe(lambda: clip.loop_end),
+                "gain": _safe(lambda: clip.gain),
+                "muted": bool(_safe(lambda: clip.muted, False)),
+                "warpMarkers": _warp_markers(clip),
+            })
+        if clips:
+            result.append({
+                "index": t_index,
+                "name": track.name,
+                "parents": _parent_names(track),
+                "muted": bool(_safe(lambda: track.mute, False)),
+                "clips": clips,
+            })
+    return {"tracks": result}
+
+
 def _track_checked(song, op):
     all_tracks = list(song.tracks)
     index = int(op.get("track", -1))
@@ -432,6 +482,7 @@ HANDLERS = {
     "restore_tempo": restore_tempo,
     "loop": loop,
     "tracks": tracks,
+    "audio_clips": audio_clips,
     "apply": apply,
     "mixer": mixer,
     "mute": mute,

@@ -420,6 +420,152 @@ function renderSections() {
   });
 }
 
+// ---- waveform -------------------------------------------------------------------
+// The song's stems mixed into one outline (built by the server from the audio
+// files), over bands for its sections. The part already played is bright.
+
+const waves = new Map(); // songId -> { version, data } once fetched
+const waveFetching = new Set();
+let waveLayers = null; // the drawn song, cached until something changes
+
+function sectionColour(name) {
+  const n = name.toLowerCase();
+  if (/pre[- ]?chorus|pre\b|lift|build/.test(n)) return '#e8c547';
+  if (/chorus|refrain/.test(n)) return '#ff8a3d';
+  if (/verse/.test(n)) return '#4f9dff';
+  if (/bridge/.test(n)) return '#b383ff';
+  if (/instrumental|inst\b|interlude|turn|solo|vamp|break/.test(n)) return '#3ccf8e';
+  if (/tag|outro|ending|end\b/.test(n)) return '#ff6b8b';
+  return '#9aa5b1'; // intro and anything else
+}
+
+function wantWave(row) {
+  const version = state && state.waveforms ? state.waveforms[row.songId] : null;
+  const have = waves.get(row.songId);
+  if (!version || (have && have.version === version) || waveFetching.has(row.songId)) return;
+  waveFetching.add(row.songId);
+  fetch(`/api/waveform?song=${encodeURIComponent(row.songId)}`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (data) waves.set(row.songId, { version, data });
+      waveLayers = null;
+      renderPosition();
+    })
+    .catch(() => {})
+    .finally(() => waveFetching.delete(row.songId));
+}
+
+/** Draw the song once (dim and bright copies) into off-screen canvases. */
+function waveLayersFor(row, w, h, dpr) {
+  const wave = waves.get(row.songId);
+  const look = document.documentElement.dataset.look || '';
+  const sig = [row.songId, row.start, row.end, wave ? wave.version : '', w, h, dpr, look, row.sections.map((s) => s.name + s.start).join('|'), state.barBeats].join(';');
+  if (waveLayers && waveLayers.sig === sig) return waveLayers;
+  const css = getComputedStyle(document.documentElement);
+  const text = css.getPropertyValue('--text').trim() || '#fff';
+  const span = row.end - row.start;
+  const x = (beat) => ((beat - row.start) / span) * w;
+  const make = (bright) => {
+    const c = document.createElement('canvas');
+    c.width = Math.round(w * dpr);
+    c.height = Math.round(h * dpr);
+    const g = c.getContext('2d');
+    g.scale(dpr, dpr);
+    // Section bands
+    const sections = row.sections.length ? row.sections : [{ name: '', start: row.start, end: row.end }];
+    for (const s of sections) {
+      g.globalAlpha = bright ? 0.22 : 0.12;
+      g.fillStyle = sectionColour(s.name);
+      g.fillRect(x(s.start), 0, x(s.end) - x(s.start), h);
+    }
+    // Bar lines (only when they are far enough apart to read)
+    const bar = state.barBeats || 4;
+    if ((bar / span) * w >= 5) {
+      g.globalAlpha = 0.08;
+      g.fillStyle = text;
+      for (let b = row.start + bar; b < row.end; b += bar) g.fillRect(Math.round(x(b)), 0, 1, h);
+    }
+    // The waveform, mirrored about the middle, one column per pixel
+    const top = 16; // room for the section names
+    const mid = top + (h - top) / 2;
+    const half = (h - top) / 2 - 2;
+    if (wave) {
+      const { peaks, perBeat, start } = wave.data;
+      for (const s of sections) {
+        g.fillStyle = sectionColour(s.name);
+        g.globalAlpha = bright ? 0.95 : 0.4;
+        const x0 = Math.max(0, Math.floor(x(s.start)));
+        const x1 = Math.min(w, Math.ceil(x(s.end)));
+        for (let px = x0; px < x1; px++) {
+          const b0 = row.start + (px / w) * span;
+          const b1 = row.start + ((px + 1) / w) * span;
+          if (b1 <= s.start || b0 >= s.end) continue;
+          let peak = 0;
+          const i0 = Math.max(0, Math.floor((Math.max(b0, s.start) - start) * perBeat));
+          const i1 = Math.min(peaks.length, Math.max(i0 + 1, Math.ceil((Math.min(b1, s.end) - start) * perBeat)));
+          for (let i = i0; i < i1; i++) if (peaks[i] > peak) peak = peaks[i];
+          const amp = Math.max(0.5, (peak / 255) * half);
+          g.fillRect(px, mid - amp, 1, amp * 2);
+        }
+      }
+    } else {
+      g.globalAlpha = bright ? 0.9 : 0.35;
+      g.fillStyle = text;
+      g.fillRect(0, mid - 1, w, 2);
+    }
+    // Section starts and names
+    g.globalAlpha = 1;
+    g.font = '600 11px system-ui, -apple-system, sans-serif';
+    g.textBaseline = 'top';
+    for (const s of row.sections) {
+      const sx = x(s.start);
+      g.fillStyle = sectionColour(s.name);
+      g.globalAlpha = 0.9;
+      g.fillRect(Math.round(sx), 0, 2, h);
+      const room = x(s.end) - sx - 6;
+      if (room > 14) {
+        g.globalAlpha = bright ? 1 : 0.75;
+        g.fillStyle = text;
+        let label = s.name;
+        while (label.length > 1 && g.measureText(label).width > room) label = label.slice(0, -1);
+        if (label !== s.name) label = label.slice(0, -1) + '…';
+        g.fillText(label, sx + 5, 3);
+      }
+    }
+    return c;
+  };
+  waveLayers = { sig, dim: make(false), bright: make(true) };
+  return waveLayers;
+}
+
+function drawWave(row, beats) {
+  const canvas = $('#waveCanvas');
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  const g = canvas.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.dataset.song = row ? row.songId : '';
+  canvas.dataset.wave = row && waves.has(row.songId) ? 'yes' : 'no';
+  if (!row || w === 0 || h === 0) return;
+  wantWave(row);
+  const layers = waveLayersFor(row, w, h, dpr);
+  g.drawImage(layers.dim, 0, 0);
+  if (beats === null) return;
+  const px = Math.max(0, Math.min(1, (beats - row.start) / (row.end - row.start))) * canvas.width;
+  if (px > 0) g.drawImage(layers.bright, 0, 0, px, canvas.height, 0, 0, px, canvas.height);
+  const css = getComputedStyle(document.documentElement);
+  g.fillStyle = css.getPropertyValue('--text').trim() || '#fff';
+  g.fillRect(Math.round(px - dpr), 0, Math.max(2, Math.round(2 * dpr)), canvas.height);
+}
+
+window.addEventListener('resize', () => renderPosition());
+
 function renderPosition() {
   if (!state) return;
   const here = rowAt(position.beats);
@@ -440,12 +586,7 @@ function renderPosition() {
     const elapsed = elapsedBeats * 60 / (inside ? position.tempo : bpm);
     $('#elapsed').textContent = clock(elapsed);
     $('#remaining').textContent = '–' + clock(total - elapsed);
-    $('#barFill').style.width = `${Math.min(100, (elapsedBeats / (focus.end - focus.start)) * 100)}%`;
-    $('#barMarks').replaceChildren(...focus.sections.slice(1).map((s) => {
-      const m = el('span');
-      m.style.left = `${((s.start - focus.start) / (focus.end - focus.start)) * 100}%`;
-      return m;
-    }));
+    drawWave(focus, inside ? position.beats : null);
     const secIdx = inside ? focus.sections.findIndex((s) => position.beats >= s.start && position.beats < s.end) : -1;
     $('#nowSection').textContent = secIdx >= 0 ? focus.sections[secIdx].name : '';
     $('#nowTempo').textContent = bpmText(position.tempo);
@@ -461,7 +602,7 @@ function renderPosition() {
     $('#nowLabel').textContent = 'Not in a song';
     $('#nowTitle').textContent = '–';
     $('#nowSection').textContent = '';
-    $('#barFill').style.width = '0';
+    drawWave(null, null);
   }
   $('#loopOffBtn').classList.toggle('hidden', !position.loop.enabled);
   renderNextSection(here, focus);

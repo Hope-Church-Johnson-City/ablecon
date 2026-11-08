@@ -8,6 +8,7 @@ import { promises as fs } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Controller } from './controller.ts';
 import { LiveClient } from './liveClient.ts';
+import { EnvelopeCache, Waveforms } from './waveform.ts';
 
 export interface ServerOptions {
   port?: number; // web UI port (default 8420)
@@ -15,6 +16,7 @@ export interface ServerOptions {
   livePort?: number; // Remote Script UDP port (default 11100)
   setlistPath: string;
   publicDir: string;
+  waveformDir?: string; // where read audio is remembered (default: next to the setlist)
   log?: (msg: string) => void;
 }
 
@@ -47,6 +49,10 @@ export function lanUrls(port: number): string[] {
 
 type Command = { id?: number; action: string; [key: string]: unknown };
 
+function mode(v: unknown): 'on' | 'off' | 'toggle' {
+  return v === 'on' || v === 'off' ? v : 'toggle';
+}
+
 async function dispatch(c: Controller, cmd: Command): Promise<void> {
   const id = String(cmd.songId ?? '');
   const n = (v: unknown) => Number(v);
@@ -71,6 +77,16 @@ async function dispatch(c: Controller, cmd: Command): Promise<void> {
     case 'mute': return c.setMute(n(cmd.track), String(cmd.name ?? ''), Boolean(cmd.muted));
     case 'solo': return c.setSolo(n(cmd.track), String(cmd.name ?? ''), Boolean(cmd.soloed));
     case 'clearSolos': return c.clearSolos();
+    // Simple commands for button boxes (Stream Deck via Companion).
+    case 'nextSong': return c.nextSong();
+    case 'previousSong': return c.previousSong();
+    case 'cueNumber': return c.cueNumber(n(cmd.number));
+    case 'startNumber': return c.startNumber(n(cmd.number));
+    case 'sectionNumber': return c.sectionNumber(n(cmd.number));
+    case 'loopNumber': return c.loopNumber(n(cmd.number));
+    case 'togglePlay': return c.togglePlay();
+    case 'muteByName': return c.muteByName(String(cmd.name ?? ''), String(cmd.group ?? ''), mode(cmd.mode));
+    case 'soloByName': return c.soloByName(String(cmd.name ?? ''), String(cmd.group ?? ''), mode(cmd.mode));
     default: throw new Error(`unknown action "${cmd.action}"`);
   }
 }
@@ -80,13 +96,39 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const live = new LiveClient({ port: opts.livePort ?? 11100 });
   const controller = new Controller(live, opts.setlistPath);
   await controller.init();
+  const snapshot = () => ({ ...controller.snapshot(), waveforms: waveforms.versions() });
+  const waveforms = new Waveforms(
+    live,
+    new EnvelopeCache(opts.waveformDir ?? path.join(path.dirname(opts.setlistPath), 'ablecon-waveforms')),
+    () => broadcast({ type: 'state', state: snapshot() }),
+  );
+  controller.on('songs', () => {
+    const tempoOf = (id: string) => {
+      const e = controller.file.entries.find((x) => x.songId === id);
+      return e?.tempo ?? e?.seenTempo ?? controller.position.tempo;
+    };
+    waveforms.update(
+      controller.songs.map((s) => ({ id: s.id, start: s.start, end: s.end, bpm: tempoOf(s.id) })),
+      controller.file.settings.sectionsTrack,
+    );
+  });
   const publicDir = path.resolve(opts.publicDir);
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://x');
     if (url.pathname === '/api/state') {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-      res.end(JSON.stringify(controller.snapshot()));
+      res.end(JSON.stringify(snapshot()));
+      return;
+    }
+    if (url.pathname === '/api/waveform') {
+      const wave = waveforms.get(url.searchParams.get('song') ?? '');
+      if (!wave) {
+        res.writeHead(404, { 'content-type': 'application/json' }).end('null');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+      res.end(JSON.stringify({ ...wave, peaks: wave.peaks.map((p) => Math.round(p * 255)) }));
       return;
     }
     if (url.pathname === '/api/urls') {
@@ -114,12 +156,12 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     const text = JSON.stringify(msg);
     for (const client of wss.clients) if (client.readyState === WebSocket.OPEN) client.send(text);
   };
-  controller.on('state', () => broadcast({ type: 'state', state: controller.snapshot() }));
+  controller.on('state', () => broadcast({ type: 'state', state: snapshot() }));
   controller.on('position', (position) => broadcast({ type: 'position', position }));
   controller.on('notice', (notice) => broadcast({ type: 'notice', notice }));
 
   wss.on('connection', (ws) => {
-    ws.send(JSON.stringify({ type: 'state', state: controller.snapshot() }));
+    ws.send(JSON.stringify({ type: 'state', state: snapshot() }));
     ws.on('message', async (data) => {
       let cmd: Command;
       try {

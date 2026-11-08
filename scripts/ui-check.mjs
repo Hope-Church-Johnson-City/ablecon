@@ -9,7 +9,7 @@
 import { app, BrowserWindow } from 'electron';
 import { spawn } from 'node:child_process';
 import dgram from 'node:dgram';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -35,9 +35,29 @@ async function freeUdpPort() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * A mono 16-bit WAV: silent for the first half, a loud tone for the second,
+ * so the waveform check can see that the drawing follows the audio.
+ */
+function halfLoudWav(seconds, rate = 8000) {
+  const n = Math.round(seconds * rate);
+  const buf = Buffer.alloc(44 + n * 2);
+  buf.write('RIFF', 0); buf.writeUInt32LE(36 + n * 2, 4); buf.write('WAVE', 8);
+  buf.write('fmt ', 12); buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20); buf.writeUInt16LE(1, 22);
+  buf.writeUInt32LE(rate, 24); buf.writeUInt32LE(rate * 2, 28); buf.writeUInt16LE(2, 32); buf.writeUInt16LE(16, 34);
+  buf.write('data', 36); buf.writeUInt32LE(n * 2, 40);
+  for (let i = n >> 1; i < n; i++) buf.writeInt16LE(Math.round(20000 * Math.sin((2 * Math.PI * 220 * i) / rate)), 44 + i * 2);
+  return buf;
+}
+
 async function main() {
   const livePort = await freeUdpPort();
-  fake = spawn('python3', [path.join(root, 'remote_script/fake_live/fake_live_server.py'), '--port', String(livePort)], { stdio: ['ignore', 'pipe', 'inherit'] });
+  // The fake set's stems were "recorded" at 120 BPM: a song of B beats lasts B/2 seconds.
+  const audioDir = await mkdtemp(path.join(os.tmpdir(), 'ablecon-ui-audio-'));
+  for (const [title, beats] of [['Morning Light', 135], ['River Wide', 123], ['Still Waters', 132]]) {
+    await writeFile(path.join(audioDir, `${title}.wav`), halfLoudWav(beats / 2));
+  }
+  fake = spawn('python3', [path.join(root, 'remote_script/fake_live/fake_live_server.py'), '--port', String(livePort), '--audio-dir', audioDir], { stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((resolve, reject) => {
     fake.stdout.once('data', resolve);
     fake.once('error', reject);
@@ -241,6 +261,55 @@ async function main() {
   await check('no outdated-Remote-Script warning with the current script', `
     return $('#scriptWarn').classList.contains('hidden') || $('#scriptWarn').textContent;`);
 
+  // ---- waveform ------------------------------------------------------------------
+  // How much of the waveform is drawn in a column of the canvas, as a share of
+  // the height below the section names (the bottom rows only ever show the band).
+  const waveHeight = `
+    const waveAt = (share) => {
+      const c = $('#waveCanvas');
+      const g = c.getContext('2d');
+      const x = Math.round(c.width * share);
+      const top = Math.ceil(18 * (window.devicePixelRatio || 1));
+      const col = g.getImageData(x, 0, 1, c.height).data;
+      const base = col.slice((c.height - 1) * 4, c.height * 4).join();
+      let drawn = 0;
+      for (let y = top; y < c.height - 1; y++) if (col.slice(y * 4, y * 4 + 4).join() !== base) drawn++;
+      return drawn / (c.height - 1 - top);
+    };`;
+
+  await check('the now-playing waveform is drawn from the song’s audio (quiet half, then loud half)', `
+    ${waveHeight}
+    await until(() => $('#waveCanvas').dataset.wave === 'yes', 15000);
+    const quiet = Math.max(waveAt(0.12), waveAt(0.3));
+    const loud = Math.min(waveAt(0.62), waveAt(0.88));
+    return (quiet < 0.1 && loud > 0.6) || 'quiet part ' + quiet.toFixed(2) + ', loud part ' + loud.toFixed(2);`);
+
+  await check('the waveform shows section names and colours', `
+    await until(() => $('#waveCanvas').dataset.wave === 'yes', 15000);
+    const row = focusRow();
+    const c = $('#waveCanvas');
+    const g = c.getContext('2d');
+    // A section's start line is drawn in its colour.
+    const s = row.sections[2];
+    const x = Math.round(((s.start - row.start) / (row.end - row.start)) * c.width) + 1;
+    const [r, gr, b] = g.getImageData(x, c.height - 2, 1, 1).data;
+    const want = sectionColour(s.name).match(/[0-9a-f]{2}/gi).map((h) => parseInt(h, 16));
+    const near = Math.abs(r - want[0]) + Math.abs(gr - want[1]) + Math.abs(b - want[2]) < 60;
+    return (row.sections.length > 2 && near) || 'start line of ' + s.name + ' is ' + [r, gr, b] + ', wanted ' + want;`);
+
+  await check('the waveform lights up the part already played', `
+    ${waveHeight}
+    const row = focusRow();
+    const c = $('#waveCanvas');
+    const g = c.getContext('2d');
+    const x = Math.round(c.width * 0.75);
+    const y = Math.round(c.height * 0.6);
+    const before = g.getImageData(x, y, 1, 1).data.join();
+    drawWave(row, row.start + (row.end - row.start) * 0.9); // as if Live were 90% through
+    const after = g.getImageData(x, y, 1, 1).data.join();
+    renderPosition();
+    return before !== after || 'the played part looks the same as the unplayed part';`);
+
   // ---- phone width -----------------------------------------------------------------
   win.setContentSize(375, 812);
   await sleep(300);
@@ -248,6 +317,13 @@ async function main() {
     await wait(100);
     const over = document.documentElement.scrollWidth - window.innerWidth;
     return over <= 1 || 'page is ' + over + 'px too wide';`);
+
+  await check('the waveform fits a phone screen', `
+    await wait(100);
+    const box = $('#wave').getBoundingClientRect();
+    const panel = $('.stage').getBoundingClientRect();
+    const c = $('#waveCanvas');
+    return (box.left >= panel.left && box.right <= panel.right && c.width >= Math.floor(box.width) - 1 && $('#waveCanvas').dataset.wave === 'yes') || 'waveform box ' + box.left + '–' + box.right + ' in panel ' + panel.left + '–' + panel.right + ', canvas ' + c.width;`);
 
   record('no errors in the page', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '));
 }

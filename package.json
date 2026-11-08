@@ -15,11 +15,13 @@
     "fake-live": "python3 remote_script/fake_live/fake_live_server.py",
     "icon": "python3 build/make_icon.py",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"test/**/*.test.ts\"",
+    "test": "node --test \"test/**/*.test.ts\" \"test/**/*.test.mjs\"",
     "test:python": "python3 -m unittest discover -s remote_script/tests",
     "test:ui": "npm run build && electron scripts/ui-check.mjs",
     "check": "npm run typecheck && npm test && npm run test:python && npm run test:ui",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "postinstall": "npm --prefix companion-module install --no-audit --no-fund",
+    "companion:package": "npm --prefix companion-module run package"
   },
   "dependencies": {
     "ws": "^8.18.0"
