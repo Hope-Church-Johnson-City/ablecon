@@ -14,14 +14,19 @@ Ablecon is a setlist and remote control for Ableton Live, used live at church se
    `git push -u origin <branch>`.
 4. Open a pull request from the fork into the church repo:
    `gh pr create --repo Hope-Church-Johnson-City/ablecon --base main --head jpalacio146:<branch>`.
-5. Once it's reviewed (or Jeremy says to), merge the pull request on GitHub:
+5. Merge the pull request on GitHub:
    `gh pr merge <number> --repo Hope-Church-Johnson-City/ablecon --merge --delete-branch`.
 6. Bring this Mac and the fork up to date: `git switch main && git pull && git push origin main`.
 
 Enforced on this Mac: `.githooks/pre-commit` refuses commits on `main`/`master`;
 `.githooks/pre-push` refuses any push to the church repo; and `upstream`'s push URL is disabled.
-Don't work around these (no `--no-verify`, no re-enabling the push URL). Push to GitHub only when
-Jeremy asks; otherwise commit on the branch locally and say it's ready for a pull request.
+Don't work around these (no `--no-verify`, no re-enabling the push URL).
+
+**Always open a PR and merge whenever a new version is ready** (from Brant). A version is ready when
+`npm run check` passes and Jeremy is happy with the change (if he asked to see it first, wait for his
+OK). Then do steps 3–6 without asking: push the branch, open the pull request, merge it, and bring
+this Mac and the fork up to date. Still never push or merge work that isn't finished or that fails
+the checks.
 
 ## Every change
 
