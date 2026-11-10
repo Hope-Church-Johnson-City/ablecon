@@ -114,6 +114,10 @@ bumped by the same rules when they change. `test/version.test.ts` checks all of 
   `afconvert`, cached in `ablecon-waveforms/` next to the setlist; plain line until ready.
 - Section loops, six looks (per device; **Ableton** is the default), outdated Remote Script warning,
   phone layout.
+- One-click updates (`src/update.ts`, `app/main.js`): newer GitHub release found at launch and every 6 h,
+  installer checked against `SHA256SUMS.txt`, never installed while Live plays or a jump waits, old
+  app kept in `previous-version`, failed swaps put the old app back, Settings shows the notice.
+  `ABLECON_UPDATE_FEED` points the app at a test feed and installs without asking (testing only).
 
 ## Layout
 

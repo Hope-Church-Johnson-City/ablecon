@@ -4,6 +4,16 @@ Ablecon uses [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH. A PAT
 bugs, a MINOR version adds something that works with your existing setlist, Remote Script and Stream
 Deck setup, and a MAJOR version changes something you'll need to redo or reinstall.
 
+## 1.2.0
+
+- Ablecon updates itself. It checks for a new version when it opens and every 6 hours, and offers to
+  install it (**Update Now**). It downloads the right installer for the Mac, checks it, then quits and
+  reopens as the new version. It never installs while Live is playing.
+- **Ablecon → Check for Updates…** checks by hand; **Ablecon → Show Previous Version in Finder** shows the
+  version before the last update, kept so you can go back.
+- The page's Settings says when a newer Ablecon is available.
+- After an update that comes with a newer Remote Script, Ablecon offers to install it.
+
 ## 1.1.0
 
 - Versions now follow semantic versioning, listed here.
