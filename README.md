@@ -32,8 +32,11 @@ Requires Ableton Live 11 or 12 (Ablecon uses the arrangement-clip access added i
 
 ### 1. Install the app
 
-Open `Ablecon-<version>-arm64.dmg` (Apple Silicon) or `Ablecon-<version>-x64.dmg` (Intel) and drag
-**Ablecon** to **Applications**.
+Download the newest installer from the church repo's
+[Releases page](https://github.com/Hope-Church-Johnson-City/ablecon/releases) (you need to be signed in
+to GitHub with access to the repo): `Ablecon-<version>-arm64.dmg` for an Apple Silicon Mac (M1 or
+newer) or `Ablecon-<version>-x64.dmg` for an Intel Mac. Open it and drag **Ablecon** to
+**Applications** (quit Ablecon first if you're updating). Each release's notes say what changed.
 
 The app is not signed with an Apple Developer ID, so the first time macOS will refuse to open it.
 Open it once anyway: try to open Ablecon, then go to **System Settings → Privacy & Security**, scroll
@@ -394,6 +397,46 @@ Stream Deck setups, MAJOR for anything people must redo or reinstall, and add a 
 computer runs is shown in **Ablecon → About Ablecon** and at the bottom of **Settings** on any device,
 next to the Remote Script version.
 
+### Releasing a new version
+
+Installers are built on a Mac and published as a
+[GitHub Release](https://github.com/Hope-Church-Johnson-City/ablecon/releases) of the church repo,
+tagged `v<version>`. The `.dmg` files live on the Releases page, not in git.
+
+1. **Bump the version in a pull request** like any other change: `npm version <x.y.z>
+   --no-git-tag-version`, a new `## x.y.z` entry at the top of [CHANGELOG.md](CHANGELOG.md) (it becomes
+   the release notes, so write it for the people installing it), commit on a branch, pull request, merge.
+2. **Check out the merged main** with nothing uncommitted:
+
+   ```bash
+   git switch main && git pull
+   ```
+
+3. **Try it first** (builds everything, publishes nothing, and shows the release notes):
+
+   ```bash
+   npm run release -- --dry-run
+   ```
+
+4. **Publish:**
+
+   ```bash
+   npm run release
+   ```
+
+`npm run release` (`scripts/release.sh`) stops unless this checkout is exactly the church repo's
+`main`, the version hasn't been released yet and CHANGELOG.md has an entry for it. Then it runs
+`npm run check`, builds both installers with `npm run dist`, and creates the release with `gh`:
+GitHub tags that `main` commit `v<version>` and attaches `Ablecon-<version>-arm64.dmg`,
+`Ablecon-<version>-x64.dmg` and `SHA256SUMS.txt`. The notes are the CHANGELOG entry plus install steps
+(`npm run release -- --notes` prints them). Nothing is pushed: the release is made on a commit that's
+already on `main` through a pull request. It needs the GitHub CLI signed in (`gh auth login`) with
+write access to the church repo.
+
+A release that went wrong is never replaced under the same version: fix it, bump PATCH and release
+again. To take a bad one down, delete it on the Releases page and delete its tag on GitHub under
+**Tags** (a `git push --delete` to the church repo is refused by the hook).
+
 ## Running from source
 
 Needs Node.js 22.18 or newer (Node runs the TypeScript directly) and Python 3 for the tests.
@@ -422,6 +465,7 @@ Other commands:
 | --- | --- |
 | `npm run app` | Builds and runs the Mac app in development. |
 | `npm run dist` | Builds `release/Ablecon-<version>-arm64.dmg` and `-x64.dmg` (unsigned). |
+| `npm run release` | Checks, builds and publishes the installers as a GitHub Release (see [Releasing a new version](#releasing-a-new-version)); `-- --dry-run` builds without publishing. |
 | `npm run icon` | Redraws `build/icon.png`. |
 | `npm run check` | Everything: type check, server tests, Remote Script tests and the page check. Commits are refused unless it passes (`.githooks/pre-commit`, enabled by `npm install`). |
 | `npm run test:ui` | Just the page check: the real page in a hidden window against the fake Live, feature by feature. |
