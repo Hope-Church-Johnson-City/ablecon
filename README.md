@@ -388,7 +388,9 @@ gh pr create --repo Hope-Church-Johnson-City/ablecon --base main
 ```
 
 The hooks in `.githooks/` (enabled by `npm install`) refuse commits on `main` and any direct push to
-the church repo.
+the church repo. GitHub enforces the same for everyone, admins included: `main` only changes through a
+merged pull request (no direct pushes, force-pushes or deleting it), and no other branch can be created
+in the church repo, so pull requests always come from a fork.
 
 **Versions** follow [semantic versioning](https://semver.org) (MAJOR.MINOR.PATCH, in `package.json`):
 bump PATCH for a bug fix, MINOR for a new feature that works with existing setlists, Remote Script and

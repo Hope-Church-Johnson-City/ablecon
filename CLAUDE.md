@@ -22,6 +22,12 @@ Enforced on this Mac: `.githooks/pre-commit` refuses commits on `main`/`master`;
 `.githooks/pre-push` refuses any push to the church repo; and `upstream`'s push URL is disabled.
 Don't work around these (no `--no-verify`, no re-enabling the push URL).
 
+Enforced on GitHub for everyone, admins included (repository rulesets, set up by Brant 2026-11-09):
+**"main: pull requests only"** (main changes only by a merged pull request; no force-push, no
+deleting it) and **"No branches here: work in a fork"** (no branch other than main can be created in
+the church repo, so every pull request comes from a fork). Releases still work: `npm run release`
+only adds a tag. The church repo is public, so forks are public too.
+
 **Always open a PR and merge whenever a new version is ready** (from Brant). A version is ready when
 `npm run check` passes and Jeremy is happy with the change (if he asked to see it first, wait for his
 OK). Then do steps 3–6 without asking: push the branch, open the pull request, merge it, and bring
