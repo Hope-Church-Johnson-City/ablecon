@@ -12,6 +12,7 @@
     "build": "tsc -p tsconfig.build.json",
     "app": "npm run build && electron .",
     "dist": "npm run build && electron-builder --mac",
+    "release": "scripts/release.sh",
     "fake-live": "python3 remote_script/fake_live/fake_live_server.py",
     "icon": "python3 build/make_icon.py",
     "typecheck": "tsc --noEmit",
