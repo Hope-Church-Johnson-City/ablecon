@@ -3,10 +3,12 @@
 // and installs the Remote Script into Ableton Live's User Library.
 
 import { app, BrowserWindow, clipboard, dialog, Menu, powerSaveBlocker, shell } from 'electron';
-import { existsSync, promises as fs } from 'node:fs';
+import { execFile, spawn } from 'node:child_process';
+import { constants as fsConstants, existsSync, openSync, promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.ABLECON_PORT ?? 8420);
@@ -14,6 +16,9 @@ const DEFAULT_USER_LIBRARY = path.join(os.homedir(), 'Music', 'Ableton', 'User L
 
 let server = null;
 let win = null;
+let updater = null; // dist/update.js
+let availableUpdate = null; // a newer release, once found
+let updating = false;
 
 const setlistPath = () => path.join(app.getPath('userData'), 'ablecon-setlist.json');
 const bundledScript = () =>
@@ -49,6 +54,7 @@ async function start() {
   powerSaveBlocker.start('prevent-app-suspension');
 
   const { startServer } = await import(pathToFileURL(path.join(appRoot, 'dist', 'server.js')).href);
+  updater = await import(pathToFileURL(path.join(appRoot, 'dist', 'update.js')).href);
   try {
     server = await startServer({
       port: PORT,
@@ -70,6 +76,11 @@ async function start() {
   showWindow();
   if (!existsSync(installedScript()) && !process.env.ABLECON_NO_PROMPTS) offerScriptInstall();
   else if (existsSync(legacyScript()) && !process.env.ABLECON_NO_PROMPTS) offerScriptInstall();
+  else if (!process.env.ABLECON_NO_PROMPTS) offerScriptUpdate();
+
+  // Look for a newer release shortly after starting, then every 6 hours.
+  setTimeout(() => checkForUpdates({ offer: true }), 5000);
+  setInterval(() => checkForUpdates({ offer: false }), 6 * 60 * 60 * 1000);
 }
 
 function showWindow() {
@@ -163,6 +174,155 @@ async function installScript() {
   }
 }
 
+/** After an update: offer the Remote Script this version came with, if Live has an older one. */
+async function offerScriptUpdate() {
+  const [installed, bundled] = await Promise.all([updater.scriptVersionAt(installedScript()), updater.scriptVersionAt(bundledScript())]);
+  if (!installed || !bundled || !updater.isNewer(bundled, installed)) return;
+  const { response } = await dialog.showMessageBox({
+    type: 'question',
+    message: `Update the Remote Script in Ableton Live to ${bundled}?`,
+    detail: `This version of Ablecon comes with Remote Script ${bundled}; Live has ${installed}. After installing it, restart Live (not during a service).`,
+    buttons: ['Install', 'Not now'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response === 0) installScript();
+}
+
+// ---- updates -------------------------------------------------------------------
+// See src/update.ts and "Updating" in README.md. ABLECON_UPDATE_FEED points the
+// app at another release feed and installs without asking; it is only for
+// testing an update end to end.
+
+const updateFeed = process.env.ABLECON_UPDATE_FEED;
+const updateLog = () => path.join(app.getPath('userData'), 'update.log');
+
+/** Each update step goes to update.log, so a failed update can be looked into afterwards. */
+function logUpdate(msg) {
+  const line = `${new Date().toISOString()} ${msg}\n`;
+  fs.appendFile(updateLog(), line).catch(() => {});
+  console.log(`Update: ${msg}`);
+}
+
+async function checkForUpdates({ offer, interactive = false }) {
+  if (updating) return;
+  try {
+    const found = await updater.checkForUpdate({ current: app.getVersion(), arch: process.arch, api: updateFeed });
+    availableUpdate = found;
+    server.setUpdate(found);
+    buildMenu();
+    if (found && updateFeed) return installUpdate(found, { ask: false });
+    if (found && (offer || interactive)) return offerUpdate(found);
+    if (!found && interactive) {
+      await dialog.showMessageBox({ type: 'info', message: 'Ablecon is up to date', detail: `You have Ablecon ${app.getVersion()}, the newest version.` });
+    }
+  } catch (err) {
+    logUpdate(`check failed: ${err && err.message ? err.message : err}`);
+    if (interactive) dialog.showErrorBox('Could not check for updates', String(err && err.message ? err.message : err));
+  }
+}
+
+async function offerUpdate(info) {
+  const { response } = await dialog.showMessageBox({
+    type: 'info',
+    message: `Ablecon ${info.version} is available`,
+    detail: `You have ${app.getVersion()}.\n\n${info.notes}\n\nUpdating quits and reopens Ablecon (phones and tablets reconnect by themselves). It won't install while Live is playing.`,
+    buttons: ['Update Now', 'Release Notes', 'Later'],
+    defaultId: 0,
+    cancelId: 2,
+  });
+  if (response === 0) return installUpdate(info, { ask: true });
+  if (response === 1) shell.openExternal(info.url);
+}
+
+/** Why this copy of Ablecon can't replace itself, or null. */
+async function cannotSelfUpdate(bundle) {
+  if (!app.isPackaged || !bundle) return 'Updates install only into the Ablecon app, not when running from source.';
+  if (bundle.includes('/AppTranslocation/') || bundle.startsWith('/Volumes/')) {
+    return 'Ablecon is running from the installer or a quarantined folder. Drag Ablecon into Applications, open it from there, and update again.';
+  }
+  try {
+    await fs.access(path.dirname(bundle), fsConstants.W_OK);
+    return null;
+  } catch {
+    return `Ablecon can't write to ${path.dirname(bundle)}, so it can't replace itself there.`;
+  }
+}
+
+function setProgress(fraction) {
+  if (win && !win.isDestroyed()) win.setProgressBar(fraction);
+}
+
+async function installUpdate(info, { ask }) {
+  if (updating) return;
+  const fail = async (message, detail) => {
+    logUpdate(`${message}: ${detail}`);
+    setProgress(-1);
+    updating = false;
+    const { response } = await dialog.showMessageBox({ type: 'warning', message, detail, buttons: ['Open Release Page', 'OK'], defaultId: 1, cancelId: 1 });
+    if (response === 0) shell.openExternal(info.url);
+  };
+  const blocked = updater.blockedReason(server.controller);
+  if (blocked) return fail(`Ablecon ${info.version} wasn't installed`, blocked);
+  const bundle = updater.appBundleFromExe(app.getPath('exe'));
+  const cannot = await cannotSelfUpdate(bundle);
+  if (cannot) return fail(`Ablecon ${info.version} can't be installed automatically`, `${cannot}\n\nYou can download it from the release page instead.`);
+
+  updating = true;
+  logUpdate(`installing ${info.version} over ${app.getVersion()} at ${bundle}`);
+  const work = path.join(app.getPath('userData'), 'update');
+  const mount = path.join(work, 'mount');
+  const staged = path.join(work, path.basename(bundle));
+  const run = promisify(execFile);
+  try {
+    await fs.rm(work, { recursive: true, force: true });
+    await fs.mkdir(mount, { recursive: true });
+    setProgress(0);
+    const dmg = await updater.downloadVerified(info, work, { onProgress: setProgress });
+    logUpdate(`downloaded and checked ${info.dmgName}`);
+    setProgress(2); // indeterminate while the app is copied out
+    await run('/usr/bin/hdiutil', ['attach', '-nobrowse', '-readonly', '-noautoopen', '-mountpoint', mount, dmg]);
+    try {
+      await run('/usr/bin/ditto', [path.join(mount, 'Ablecon.app'), staged]);
+    } finally {
+      await run('/usr/bin/hdiutil', ['detach', mount, '-force']).catch(() => {});
+    }
+    const { stdout } = await run('/usr/bin/plutil', ['-extract', 'CFBundleShortVersionString', 'raw', path.join(staged, 'Contents', 'Info.plist')]);
+    if (stdout.trim() !== info.version) throw new Error(`the installer holds Ablecon ${stdout.trim()}, not ${info.version}`);
+    logUpdate(`copied Ablecon ${info.version} out of the installer`);
+    await fs.rm(dmg, { force: true });
+  } catch (err) {
+    return fail(`Ablecon ${info.version} wasn't installed`, String(err && err.message ? err.message : err));
+  }
+
+  // Live may have started while it downloaded.
+  const nowBlocked = updater.blockedReason(server.controller);
+  if (nowBlocked) return fail(`Ablecon ${info.version} wasn't installed`, `${nowBlocked} (It's downloaded; choose Update again when Live stops.)`);
+  if (ask) {
+    const { response } = await dialog.showMessageBox({
+      type: 'question',
+      message: `Install Ablecon ${info.version} now?`,
+      detail: 'Ablecon will quit and open again in a few seconds. Phones and tablets reconnect by themselves.',
+      buttons: ['Install and Reopen', 'Cancel'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response !== 0) {
+      logUpdate('cancelled before installing');
+      setProgress(-1);
+      updating = false;
+      return;
+    }
+  }
+  const script = path.join(work, 'swap.sh');
+  await fs.writeFile(script, updater.SWAP_SCRIPT, { mode: 0o755 });
+  const log = openSync(updateLog(), 'a');
+  const previous = path.join(app.getPath('userData'), 'previous-version');
+  logUpdate('quitting so the new version can be put in place');
+  spawn('/bin/sh', [script, String(process.pid), bundle, staged, previous], { detached: true, stdio: ['ignore', log, log] }).unref();
+  app.quit();
+}
+
 // ---- other devices ------------------------------------------------------------
 
 async function showAddresses() {
@@ -179,7 +339,24 @@ async function showAddresses() {
 
 function buildMenu() {
   const template = [
-    { role: 'appMenu' },
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        availableUpdate
+          ? { label: `Update to Ablecon ${availableUpdate.version}…`, click: () => offerUpdate(availableUpdate) }
+          : { label: 'Check for Updates…', click: () => checkForUpdates({ offer: true, interactive: true }) },
+        { label: 'Show Previous Version in Finder', click: showPreviousVersion },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
     {
       label: 'File',
       submenu: [
@@ -200,6 +377,17 @@ function buildMenu() {
     { role: 'windowMenu' },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+/** The version before the last update, kept so it can be put back by hand. */
+async function showPreviousVersion() {
+  const previous = path.join(app.getPath('userData'), 'previous-version', 'Ablecon.app');
+  if (existsSync(previous)) return shell.showItemInFolder(previous);
+  await dialog.showMessageBox({
+    type: 'info',
+    message: 'No previous version kept yet',
+    detail: 'After an update, the version before it is kept here so it can be put back: quit Ablecon, drag it into Applications and replace the newer one.',
+  });
 }
 
 // The server keeps running with the window closed, so phones stay connected.

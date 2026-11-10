@@ -74,6 +74,32 @@ Choose **File → Open on Other Devices…** in the app. It lists addresses like
 Open one in Safari or Chrome on any device on the same network. Tip: on an iPad or iPhone, use
 **Share → Add to Home Screen** to get a full-screen button for it.
 
+### 5. Updating
+
+From 1.2.0 on, Ablecon updates itself. A few seconds after it opens, and every 6 hours while it runs,
+it asks GitHub for the newest [release](https://github.com/Hope-Church-Johnson-City/ablecon/releases).
+When there's a newer one:
+
+- When it finds one at startup, it asks: **Update Now**, **Release Notes** or **Later**. The **Ablecon** menu
+  then shows **Update to Ablecon x.y.z…** until it's installed (otherwise it shows **Check for Updates…**).
+- The page's **Settings** on every device says a newer version is available.
+- **Update Now** downloads the installer for this Mac (Apple Silicon or Intel), checks it against the
+  release's `SHA256SUMS.txt`, and asks once more. **Install and Reopen** quits Ablecon, puts the new
+  version in place of the old one and opens it again; phones and tablets reconnect by themselves.
+- It never installs while Live is playing or a Next section jump is waiting: it says so, and you
+  update once Live is stopped. Nothing installs without someone clicking.
+- If the new version comes with a newer Remote Script, Ablecon offers to install it when it reopens;
+  then restart Live (not during a service).
+- The version before the update is kept: **Ablecon → Show Previous Version in Finder**. To go back,
+  quit Ablecon, drag that **Ablecon** into **Applications** and replace the newer one.
+
+Ablecon has to be in a folder it can write to (normally **Applications**, which admin users can), and
+opened from there, not from the installer disk. If it can't update itself it says why and offers the
+release page, where you can download the installer by hand. What happened during the last update is
+logged, step by step, in `~/Library/Application Support/ablecon/update.log`.
+
+Before 1.2.0 (1.1.0 and older), install the new version by hand once, as in step 1.
+
 ---
 
 ## Naming your locators

@@ -128,6 +128,11 @@ function render() {
   }
   $('#setLength').textContent = clock(state.totalSeconds);
   $('#version').textContent = `Ablecon ${state.appVersion || ''}` + (state.scriptVersion ? ` · Remote Script ${state.scriptVersion}` : '');
+  const update = state.update;
+  $('#updateNote').classList.toggle('hidden', !update);
+  if (update) {
+    $('#updateNote').textContent = `Ablecon ${update.version} is available. To install it, choose Ablecon → Update to Ablecon ${update.version}… on the Mac running Ablecon (while Live is stopped).`;
+  }
   $('#endOfSong').value = state.settings.endOfSong;
   $('#jumpBars').value = String(state.settings.jumpBars ?? 2);
   if (document.activeElement !== $('#noKeyTag')) $('#noKeyTag').value = state.settings.noKeyTag;

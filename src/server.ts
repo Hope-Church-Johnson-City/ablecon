@@ -25,6 +25,8 @@ export interface RunningServer {
   port: number;
   urls: string[];
   controller: Controller;
+  /** Tell every page that a newer Ablecon is available (null: none). */
+  setUpdate(update: { version: string; url: string } | null): void;
   close(): Promise<void>;
 }
 
@@ -97,7 +99,8 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const live = new LiveClient({ port: opts.livePort ?? 11100 });
   const controller = new Controller(live, opts.setlistPath);
   await controller.init();
-  const snapshot = () => ({ ...controller.snapshot(), appVersion: APP_VERSION, waveforms: waveforms.versions() });
+  let update: { version: string; url: string } | null = null;
+  const snapshot = () => ({ ...controller.snapshot(), appVersion: APP_VERSION, update, waveforms: waveforms.versions() });
   const waveforms = new Waveforms(
     live,
     new EnvelopeCache(opts.waveformDir ?? path.join(path.dirname(opts.setlistPath), 'ablecon-waveforms')),
@@ -194,6 +197,10 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     port,
     urls: lanUrls(port),
     controller,
+    setUpdate: (next) => {
+      update = next ? { version: next.version, url: next.url } : null;
+      broadcast({ type: 'state', state: snapshot() });
+    },
     close: async () => {
       live.stop();
       for (const client of wss.clients) client.terminate();

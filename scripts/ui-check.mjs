@@ -266,6 +266,19 @@ async function main() {
   await check('no outdated-Remote-Script warning with the current script', `
     return $('#scriptWarn').classList.contains('hidden') || $('#scriptWarn').textContent;`);
 
+  await check('no update notice while Ablecon is up to date', `
+    return $('#updateNote').classList.contains('hidden') || $('#updateNote').textContent;`);
+
+  server.setUpdate({ version: '9.9.9', url: 'https://github.com/Hope-Church-Johnson-City/ablecon/releases/tag/v9.9.9' });
+  await sleep(300);
+  await check('Settings says when a newer Ablecon is available, and where to update it', `
+    const note = $('#updateNote');
+    return !note.classList.contains('hidden') && note.textContent.includes('Ablecon 9.9.9 is available') && note.textContent.includes('Update to Ablecon 9.9.9') || note.textContent;`);
+  server.setUpdate(null);
+  await sleep(300);
+  await check('the update notice goes away once there is no newer version', `
+    return $('#updateNote').classList.contains('hidden') || $('#updateNote').textContent;`);
+
   // ---- waveform ------------------------------------------------------------------
   // How much of the waveform is drawn in a column of the canvas, as a share of
   // the height below the section names (the bottom rows only ever show the band).
