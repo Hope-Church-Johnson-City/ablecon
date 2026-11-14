@@ -108,7 +108,11 @@ bumped by the same rules when they change. `test/version.test.ts` checks all of 
   actions, feedbacks and variables, tested in `test/companion.test.mjs` with the real module class
   under a stand-in Companion; Ablecon's button commands (next/previous song, song/section number,
   play toggle, mute/solo by name). Loaded in Jeremy's Companion from `~/Companion Modules/ablecon`
-  (a link to `companion-module/`).
+  (a link to `companion-module/`). **The module's package is kept in the repo** (from Brant,
+  2026-11-13: "always build it and store the tgz in the repo itself"):
+  `companion-module/<id>-<version>.tgz`, current version only. The pre-commit hook rebuilds it with
+  `npm run companion:package` (`scripts/companion-package.mjs`) and stages it; the packaging test in
+  `test/companion.test.mjs` fails if the committed package doesn't match the module.
 - Waveform in the now panel: all stems mixed (not click/guide/Sections/muted), lined up by warp
   markers, section bands and names, bar lines, played part bright; built in the background with
   `afconvert`, cached in `ablecon-waveforms/` next to the setlist; plain line until ready.

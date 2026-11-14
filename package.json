@@ -22,7 +22,7 @@
     "check": "npm run typecheck && npm test && npm run test:python && npm run test:ui",
     "prepare": "git config core.hooksPath .githooks || true",
     "postinstall": "npm --prefix companion-module install --no-audit --no-fund",
-    "companion:package": "npm --prefix companion-module run package"
+    "companion:package": "node scripts/companion-package.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"

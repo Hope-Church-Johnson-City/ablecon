@@ -10,6 +10,14 @@ if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
   echo "Start a branch first:  git switch -c <short-description>"
   exit 1
 fi
+# The Companion module package lives in the repo (from Brant): rebuild it and stage it, so it
+# always matches the module being committed.
+echo "Building the Companion module package..."
+if ! node scripts/companion-package.mjs; then
+  echo "Couldn't build the Companion module package: commit refused."
+  exit 1
+fi
+git add -A -- 'companion-module/*.tgz'
 echo "Running npm run check before committing..."
 npm run check --silent >/tmp/ablecon-check.log 2>&1
 status=$?
