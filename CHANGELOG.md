@@ -4,6 +4,14 @@ Ablecon uses [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH. A PAT
 bugs, a MINOR version adds something that works with your existing setlist, Remote Script and Stream
 Deck setup, and a MAJOR version changes something you'll need to redo or reinstall.
 
+## 1.2.1
+
+- Each release now includes the Stream Deck module for Bitfocus Companion
+  (`hopechurch-ablecon-1.2.0.tgz`). To install or update it, choose **Modules → Import module
+  package** in Companion; your buttons stay as they are.
+- The module is now MIT licensed, which is what lets Companion install it from that one file.
+- Nothing in the Ablecon app itself changed.
+
 ## 1.2.0
 
 - Ablecon updates itself. It checks for a new version when it opens and every 6 hours, and offers to

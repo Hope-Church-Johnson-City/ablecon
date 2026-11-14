@@ -1,6 +1,6 @@
 {
   "name": "ablecon",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "Setlist and remote control for Ableton Live, from any browser on your network.",
   "type": "module",
