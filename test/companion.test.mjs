@@ -4,10 +4,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, readFile, readdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startServer } from '../src/server.ts';
 import { FakeLive, demoSet } from './fakeLive.ts';
 import AbleconInstance from '../companion-module/src/main.js';
@@ -180,14 +181,14 @@ function fakeCompanion(label = 'ablecon') {
   return host;
 }
 
-async function setup() {
+async function setup(Instance = AbleconInstance) {
   const fake = new FakeLive(demoSet());
   const livePort = await fake.start();
   const dir = await mkdtemp(path.join(os.tmpdir(), 'ablecon-companion-'));
   const server = await startServer({ port: 0, host: '127.0.0.1', livePort, setlistPath: path.join(dir, 's.json'), publicDir: path.join(root, 'public'), log: () => {} });
   server.controller.scanSettleMs = 5;
   const companion = fakeCompanion();
-  const module = new AbleconInstance(companion.context);
+  const module = new Instance(companion.context);
   await module.init({ host: '127.0.0.1', port: server.port }, true, undefined);
   const done = async () => {
     await module.destroy();
@@ -258,5 +259,40 @@ test('the module shows when Ablecon is unreachable and reconnects by itself', as
     await module.destroy();
     if (server) await server.close();
     fake.close();
+  }
+});
+
+// ---- packaging for Companion's "Import module package" (MIT licence) -------------------------
+
+test('the module is MIT licensed and packages for Companion; the packaged module works', async () => {
+  const moduleDir = path.join(root, 'companion-module');
+  const pkg = JSON.parse(await readFile(path.join(moduleDir, 'package.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(moduleDir, 'companion/manifest.json'), 'utf8'));
+  assert.equal(pkg.license, 'MIT');
+  assert.equal(manifest.license, 'MIT', 'Companion only packages MIT/GPL modules');
+  assert.match(await readFile(path.join(moduleDir, 'LICENSE'), 'utf8'), /^MIT License/);
+
+  // Build exactly as `npm run companion:package` does, then unpack the result like Companion would.
+  execFileSync('npm', ['run', 'package'], { cwd: moduleDir, stdio: 'ignore' });
+  const tgz = path.join(moduleDir, `${manifest.id}-${manifest.version}.tgz`);
+  const out = await mkdtemp(path.join(os.tmpdir(), 'ablecon-pkg-'));
+  execFileSync('tar', ['-xzf', tgz, '-C', out]);
+  const dir = path.join(out, manifest.id);
+  const files = (await readdir(dir, { recursive: true })).sort();
+  for (const f of ['LICENSE', 'main.js', 'companion/manifest.json', 'companion/HELP.md']) assert.ok(files.includes(f), `${f} in the package`);
+  const packed = JSON.parse(await readFile(path.join(dir, 'companion/manifest.json'), 'utf8'));
+  assert.equal(packed.version, manifest.version);
+  assert.equal(packed.license, 'MIT');
+
+  // The packaged (bundled) module needs nothing else installed, and drives Ablecon like the source does.
+  const { default: Packaged } = await import(pathToFileURL(path.join(dir, 'main.js')).href);
+  const { fake, companion, done } = await setup(Packaged);
+  try {
+    await until(() => companion.variables.song_count === 2 && companion.variables.connected === 'Yes');
+    await companion.press('cue_song', { number: 2 });
+    assert.equal(fake.set.beats, 40);
+    await until(() => companion.feedback('song_active', { number: 2 }) === true);
+  } finally {
+    await done();
   }
 });

@@ -367,21 +367,31 @@ next section, cancel the jump, jump to or loop section number, loop off, mute or
 
 ### Installing the module
 
-Companion loads it from a *developer modules* folder (no packaging needed):
+The module is MIT licensed (`companion-module/LICENSE`), so it can be packaged as one file that any
+Companion 5.1+ installs, with nothing else needed on that computer.
 
-1. Install the module's libraries once: `npm install` in the project (or `npm install` inside
-   `companion-module/`).
-2. Make a folder for Companion modules, e.g. `~/Companion Modules`, and put the `companion-module`
-   folder in it (a copy, or a link: `ln -s ~/Projects/ablcon/companion-module ~/Companion\ Modules/ablecon`).
+**From the package (any computer, e.g. the church's):**
+
+1. Build it on a Mac with this project: `npm run companion:package`. This writes
+   `companion-module/hopechurch-ablecon-<version>.tgz` (about 10 KB).
+2. In Companion's page: **Modules → Import module package** and choose that `.tgz` file.
+3. **Connections → Add Connection → Ablecon**. Keep address `127.0.0.1` and port `8420` if Ablecon runs
+   on the same computer; otherwise use the address from Ablecon's **File → Open on Other Devices**.
+4. To get a button page from another Companion: on that one, **Import / Export → Export
+   configuration**; on this one, **Import configuration** into an empty page. In **Settings → Buttons**,
+   set **Default decoration** to **Border (when pressed)** to keep the page/button number off the keys.
+
+To update it later, build the new version and import that package the same way.
+
+**While developing (loads straight from this folder):**
+
+1. Install the module's libraries once: `npm install` in the project (or inside `companion-module/`).
+2. Make a folder for Companion modules, e.g. `~/Companion Modules`, and link the module into it:
+   `ln -s ~/Projects/ablcon/companion-module ~/Companion\ Modules/ablecon`.
 3. In Companion's launcher window, click the cog → **Advanced Settings** → **Developer** → **Select**
-   that folder, and turn on **Enable Developer Modules**.
-4. Open Companion's page → **Connections** → **Add Connection** → **Ablecon**. Keep address
-   `127.0.0.1` and port `8420` if Ablecon runs on the same computer; otherwise use the address from
-   Ablecon's **File → Open on Other Devices**.
-
-Companion reloads the module by itself when its files change. (Companion's packaging tool,
-`npm run companion:package`, only builds modules under an open-source licence such as MIT, so this
-module isn't packaged as a single file.)
+   that folder, and turn on **Enable Developer Modules**. Companion then reloads the module by itself
+   whenever its files change.
+4. Add the connection as in step 3 above.
 
 ## Troubleshooting
 
