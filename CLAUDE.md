@@ -73,8 +73,12 @@ bumped by the same rules when they change. `test/version.test.ts` checks all of 
    script to `~/Music/Ableton/User Library/Remote Scripts/Ablecon` and tell Jeremy to restart Live.
 6. **Shipping:** releases are GitHub Releases of the church repo, made by `npm run release` on a Mac
    (README: "Releasing a new version"). Bump the version and add the CHANGELOG entry in a pull request;
-   once it's merged, check out main, run `npm run release -- --dry-run`, then `npm run release` when
-   Jeremy says to publish. Never reuse a released version: bump PATCH instead. Publishing a release is
+   once it's merged, check out main, run `npm run release -- --dry-run`, then `npm run release`.
+   **Every new version of Ablecon gets a release, without asking** (from Brant, 2026-11-13: "every
+   time we have a new version, build and push the app and the Companion module, both in a new
+   release"): the release holds both installers, the Companion module package
+   (`companion-module/<id>-<version>.tgz`) and `SHA256SUMS.txt` for all three
+   (`npm run release -- --assets` lists them). Never reuse a released version: bump PATCH instead. Publishing a release is
    the one thing that writes to the church repo directly, and only on a commit already merged to main.
    `npm run dist` alone builds `release/Ablecon-<version>-arm64.dmg` for local testing. Before telling
    Jeremy to install, check for stale installer disks in `/Volumes` and whether Ablecon is running
