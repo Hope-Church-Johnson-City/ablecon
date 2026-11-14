@@ -32,3 +32,28 @@ test('the release notes are the current version\'s changelog entry and how to in
 test('release.sh refuses options it doesn\'t know', async () => {
   await assert.rejects(run(script, ['--publish-now']), (err: { code?: number }) => err.code === 2);
 });
+
+// From Brant: every release carries the app and the Companion (Stream Deck) module.
+test('a release publishes both installers, the Companion module package and their checksums', async () => {
+  const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(root, 'companion-module/companion/manifest.json'), 'utf8'));
+  const moduleTgz = `companion-module/${manifest.id}-${manifest.version}.tgz`;
+  const { stdout } = await run(script, ['--assets']);
+  assert.deepEqual(stdout.trim().split('\n'), [
+    `release/Ablecon-${pkg.version}-arm64.dmg`,
+    `release/Ablecon-${pkg.version}-x64.dmg`,
+    moduleTgz,
+    'release/SHA256SUMS.txt',
+  ]);
+  await access(path.join(root, moduleTgz)); // the package kept in the repo is the one released
+  const src = await readFile(script, 'utf8');
+  assert.match(src, /gh release create "\$TAG" "\$ARM" "\$X64" "\$MODULE_TGZ" "\$SUMS"/, 'all four are attached to the release');
+  assert.match(src, /shasum -a 256 [^\n]*\$\(basename "\$MODULE_TGZ"\)/, 'the module package has a checksum too');
+});
+
+test('the release notes say how to install the Companion module', async () => {
+  const manifest = JSON.parse(await readFile(path.join(root, 'companion-module/companion/manifest.json'), 'utf8'));
+  const { stdout } = await run(script, ['--notes']);
+  assert.ok(stdout.includes(`${manifest.id}-${manifest.version}.tgz`), 'names the module package');
+  assert.ok(stdout.includes('Import module package'));
+});

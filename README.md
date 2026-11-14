@@ -471,10 +471,13 @@ tagged `v<version>`. The `.dmg` files live on the Releases page, not in git.
 
 `npm run release` (`scripts/release.sh`) stops unless this checkout is exactly the church repo's
 `main`, the version hasn't been released yet and CHANGELOG.md has an entry for it. Then it runs
-`npm run check`, builds both installers with `npm run dist`, and creates the release with `gh`:
-GitHub tags that `main` commit `v<version>` and attaches `Ablecon-<version>-arm64.dmg`,
-`Ablecon-<version>-x64.dmg` and `SHA256SUMS.txt`. The notes are the CHANGELOG entry plus install steps
-(`npm run release -- --notes` prints them). Nothing is pushed: the release is made on a commit that's
+`npm run check`, builds both installers with `npm run dist` and the Companion (Stream Deck) module
+package with `npm run companion:package`, and creates the release with `gh`: GitHub tags that `main`
+commit `v<version>` and attaches `Ablecon-<version>-arm64.dmg`, `Ablecon-<version>-x64.dmg`, the module
+package `hopechurch-ablecon-<module version>.tgz` and `SHA256SUMS.txt` for all three
+(`npm run release -- --assets` lists them). Every new version gets a release with both the app and the
+module. The notes are the CHANGELOG entry plus install steps for both (`npm run release -- --notes`
+prints them). Nothing is pushed: the release is made on a commit that's
 already on `main` through a pull request. It needs the GitHub CLI signed in (`gh auth login`) with
 write access to the church repo.
 
