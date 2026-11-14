@@ -4,6 +4,14 @@ Ablecon uses [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH. A PAT
 bugs, a MINOR version adds something that works with your existing setlist, Remote Script and Stream
 Deck setup, and a MAJOR version changes something you'll need to redo or reinstall.
 
+## 1.3.0
+
+- Ablecon sets up its Stream Deck module in Bitfocus Companion (5.1 or newer) on the same Mac by
+  itself: it imports the module, adds the `ablecon` connection, and keeps both there. When a new
+  Ablecon starts for the first time, it brings Companion's module up to its version too. Your buttons
+  and the connection's address stay as they are, and nothing changes while Live is playing.
+- **File → Set Up Stream Deck (Companion)** does it right away and says what it did.
+
 ## 1.2.1
 
 - Each release now includes the Stream Deck module for Bitfocus Companion
