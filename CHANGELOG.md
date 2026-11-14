@@ -10,7 +10,8 @@ Deck setup, and a MAJOR version changes something you'll need to redo or reinsta
   (`hopechurch-ablecon-1.2.0.tgz`). To install or update it, choose **Modules → Import module
   package** in Companion; your buttons stay as they are.
 - The module is now MIT licensed, which is what lets Companion install it from that one file.
-- Nothing in the Ablecon app itself changed.
+- Fix: Ablecon now only listens to Ableton Live's Remote Script. Before, a stray message from another
+  program on the Mac could briefly show the wrong playhead position.
 
 ## 1.2.0
 

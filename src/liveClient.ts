@@ -51,7 +51,7 @@ export class LiveClient extends EventEmitter<LiveClientEvents> {
   async start(): Promise<void> {
     const socket = dgram.createSocket('udp4');
     this.socket = socket;
-    socket.on('message', (buf) => this.onMessage(buf));
+    socket.on('message', (buf, rinfo) => this.onMessage(buf, rinfo));
     socket.on('error', () => {
       /* ICMP "port unreachable" when Live isn't running; heartbeat handles it */
     });
@@ -105,7 +105,10 @@ export class LiveClient extends EventEmitter<LiveClientEvents> {
     });
   }
 
-  private onMessage(buf: Buffer): void {
+  private onMessage(buf: Buffer, from?: dgram.RemoteInfo): void {
+    // Only Live's Remote Script talks to us, always from the address and port we send to. Anything
+    // else (another program, or a late packet meant for a port this socket now reuses) is ignored.
+    if (from && (from.port !== this.port || (this.host !== 'localhost' && from.address !== this.host))) return;
     let address: string;
     let values: Array<number | string | boolean>;
     try {
