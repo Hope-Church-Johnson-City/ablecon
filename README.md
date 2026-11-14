@@ -370,7 +370,23 @@ next section, cancel the jump, jump to or loop section number, loop off, mute or
 The module is MIT licensed (`companion-module/LICENSE`), so it can be packaged as one file that any
 Companion 5.1+ installs, with nothing else needed on that computer.
 
-**From the package (any computer, e.g. the church's):**
+**On the Mac running Ablecon: nothing to do.** Ablecon carries the module and sets it up in Companion
+on the same Mac by itself, as soon as both are running (at launch, then checked every minute):
+
+- it imports the module into Companion if that version isn't there yet;
+- it adds an `ablecon` connection to this Ablecon if there's none (also if one is deleted);
+- it moves `ablecon` connections on an older version of the module to the one it carries, so a new
+  Ablecon brings its module along the first time it starts, and turns them back on if they were turned
+  off. Each connection's address and port are left as they are.
+
+It never changes anything while Live is playing (switching the module version restarts it in Companion
+for a moment); it waits until Live stops. A connection using a developer copy of the module (see below)
+is left alone, as is a newer module from a newer Ablecon. **File → Set Up Stream Deck (Companion)**
+does it right away and says what it did; every change is written to
+`~/Library/Application Support/ablecon/companion.log`. It finds Companion through the address in
+Companion's launcher window (127.0.0.1:8000 unless changed there).
+
+**From the package (any other computer, or by hand):**
 
 1. Get the package. It's kept in this repo, always built from the current module:
    `companion-module/hopechurch-ablecon-<version>.tgz` (about 10 KB). Download it from the

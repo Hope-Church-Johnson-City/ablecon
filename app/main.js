@@ -19,6 +19,7 @@ let win = null;
 let updater = null; // dist/update.js
 let availableUpdate = null; // a newer release, once found
 let updating = false;
+let companion = null; // dist/companion.js
 
 const setlistPath = () => path.join(app.getPath('userData'), 'ablecon-setlist.json');
 const bundledScript = () =>
@@ -55,6 +56,7 @@ async function start() {
 
   const { startServer } = await import(pathToFileURL(path.join(appRoot, 'dist', 'server.js')).href);
   updater = await import(pathToFileURL(path.join(appRoot, 'dist', 'update.js')).href);
+  companion = await import(pathToFileURL(path.join(appRoot, 'dist', 'companion.js')).href);
   try {
     server = await startServer({
       port: PORT,
@@ -81,6 +83,12 @@ async function start() {
   // Look for a newer release shortly after starting, then every 6 hours.
   setTimeout(() => checkForUpdates({ offer: true }), 5000);
   setInterval(() => checkForUpdates({ offer: false }), 6 * 60 * 60 * 1000);
+
+  // Set up the Stream Deck module in Companion on this Mac, and keep it set up.
+  if (!process.env.ABLECON_NO_COMPANION) {
+    setTimeout(() => keepCompanionSetUp(), 3000);
+    setInterval(() => keepCompanionSetUp(), 60 * 1000);
+  }
 }
 
 function showWindow() {
@@ -187,6 +195,75 @@ async function offerScriptUpdate() {
     cancelId: 1,
   });
   if (response === 0) installScript();
+}
+
+// ---- Stream Deck (Companion) -------------------------------------------------------
+// See src/companion.ts and "Stream Deck" in README.md. ABLECON_COMPANION_URL points at another
+// Companion (its ws://…/trpc address), for testing; ABLECON_NO_COMPANION turns this off.
+
+const companionLog = () => path.join(app.getPath('userData'), 'companion.log');
+let companionRunning = false;
+let lastCompanionState = null;
+
+let companionLogWrites = Promise.resolve();
+function logCompanion(msg) {
+  const line = `${new Date().toISOString()} ${msg}\n`;
+  companionLogWrites = companionLogWrites.then(() => fs.appendFile(companionLog(), line)).catch(() => {}); // in order
+  console.log(`Companion: ${msg}`);
+}
+
+/** The module package this Ablecon carries (companion-module/hopechurch-ablecon-<version>.tgz). */
+async function bundledModule() {
+  const dir = app.isPackaged ? path.join(process.resourcesPath, 'companion-module') : path.join(appRoot, 'companion-module');
+  const tgz = (await fs.readdir(dir).catch(() => [])).find((f) => companion.packageVersion(f));
+  return tgz ? path.join(dir, tgz) : null;
+}
+
+async function keepCompanionSetUp({ interactive = false } = {}) {
+  if (companionRunning || !server) return;
+  companionRunning = true;
+  let result = null;
+  let error = null;
+  try {
+    const tgz = await bundledModule();
+    if (!tgz) throw new Error('this copy of Ablecon has no Companion module package');
+    result = await companion.ensureCompanion({
+      tgz,
+      ablePort: server.port,
+      url: process.env.ABLECON_COMPANION_URL || undefined,
+      busy: () => server.controller.position.playing,
+    });
+    // Log changes, and each change of state (not every quiet minute).
+    for (const step of result.steps ?? []) if (result.state === 'ok') logCompanion(companion.describeStep(step));
+    if (result.state !== lastCompanionState) {
+      if (result.state === 'ok') logCompanion(`set up: module ${result.version} in Companion at ${result.url}`);
+      else if (result.state === 'waiting') logCompanion('changes are waiting until Live stops playing');
+      else if (result.state === 'not-running') logCompanion(`Companion isn't running (${result.url})`);
+      lastCompanionState = result.state;
+    }
+  } catch (err) {
+    error = err;
+    const msg = String(err && err.message ? err.message : err);
+    if (lastCompanionState !== `error:${msg}`) logCompanion(`couldn't set up: ${msg}`);
+    lastCompanionState = `error:${msg}`;
+  } finally {
+    companionRunning = false;
+  }
+  if (interactive) showCompanionResult(result, error);
+}
+
+function showCompanionResult(result, error) {
+  const changes = result?.steps?.map((s) => `• ${companion.describeStep(s)}`).join('\n');
+  const messages = {
+    absent: ["Companion isn't on this Mac", 'Install Bitfocus Companion 5.1 or newer and start it; Ablecon then sets up its Stream Deck module by itself.'],
+    'not-running': ["Companion isn't running", `Start Companion on this Mac; Ablecon sets up its Stream Deck module within a minute. (Looked for it at ${result?.url}.)`],
+    waiting: ['Waiting for Live to stop', 'Ablecon changes nothing in Companion while Live is playing. It finishes as soon as Live stops.'],
+    ok: [`Companion is set up (Ablecon module ${result?.version})`, changes ? `Just now:\n${changes}` : 'Nothing needed changing.'],
+  };
+  const [message, detail] = error
+    ? ["Couldn't set up Companion", `${error.message ?? error}\n\nDetails are in ${companionLog()}.`]
+    : messages[result.state];
+  dialog.showMessageBox({ type: error ? 'warning' : 'info', message, detail });
 }
 
 // ---- updates -------------------------------------------------------------------
@@ -364,6 +441,7 @@ function buildMenu() {
         { label: 'Open in Browser', click: () => shell.openExternal(`http://127.0.0.1:${server.port}/`) },
         { type: 'separator' },
         { label: 'Install Remote Script in Ableton Live…', click: installScript },
+        { label: 'Set Up Stream Deck (Companion)', click: () => keepCompanionSetUp({ interactive: true }) },
         { label: 'Show Setlist File in Finder', click: () => (existsSync(setlistPath()) ? shell.showItemInFolder(setlistPath()) : shell.openPath(app.getPath('userData'))) },
         { type: 'separator' },
         { role: 'close' },

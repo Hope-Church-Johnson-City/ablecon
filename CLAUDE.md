@@ -117,6 +117,15 @@ bumped by the same rules when they change. `test/version.test.ts` checks all of 
   `companion-module/<id>-<version>.tgz`, current version only. The pre-commit hook rebuilds it with
   `npm run companion:package` (`scripts/companion-package.mjs`) and stages it; the packaging test in
   `test/companion.test.mjs` fails if the committed package doesn't match the module.
+- Companion setup (`src/companion.ts`, `app/main.js`; from Brant, 2026-11-13: find Companion on the
+  local system, configure the module, keep it configured, and upgrade it when a new Ablecon first
+  starts): the installer carries `companion-module/*.tgz`; at launch and every minute Ablecon talks to
+  Companion on this Mac over its tRPC WebSocket (`/trpc`, address from Companion's `config.json`),
+  imports the module if that version is missing, adds an `ablecon` connection if there's none, moves
+  older-version connections up and re-enables them. Never while Live plays; `dev` connections and
+  newer versions untouched. Tested against a stand-in Companion in `test/companion-setup.test.ts`
+  (calls and shapes taken from Companion 5.1.3's source; not yet tried against a real Companion).
+  `ABLECON_COMPANION_URL` points at another Companion, `ABLECON_NO_COMPANION` turns it off.
 - Waveform in the now panel: all stems mixed (not click/guide/Sections/muted), lined up by warp
   markers, section bands and names, bar lines, played part bright; built in the background with
   `afconvert`, cached in `ablecon-waveforms/` next to the setlist; plain line until ready.
