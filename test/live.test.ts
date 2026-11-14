@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LiveClient } from '../src/liveClient.ts';
+import { encodeMessage, float, int, str } from '../src/osc.ts';
 import { Controller } from '../src/controller.ts';
 import type { Position } from '../src/types.ts';
 import { FakeLive, demoSet } from './fakeLive.ts';
@@ -79,6 +80,36 @@ test('client times out when Live does not answer and reports disconnection', asy
     fake.silent = false;
     await client.call('state');
   } finally {
+    done();
+  }
+});
+
+test('client ignores messages that do not come from Live', async () => {
+  // A stray sender (another program, or a late packet for a port the client's socket now reuses)
+  // must not move the playhead Ablecon shows. This once made the push test below fail at random.
+  const { fake, client, done } = await setup();
+  const stray = dgram.createSocket('udp4');
+  try {
+    await client.start();
+    await until(() => client.connected);
+    const port = (client as unknown as { socket: dgram.Socket }).socket.address().port;
+    const seen: Position[] = [];
+    client.on('position', (p) => seen.push(p));
+    const changed: string[] = [];
+    client.on('changed', (w) => changed.push(w));
+    await new Promise<void>((r) => stray.bind(0, '127.0.0.1', r));
+    stray.send(encodeMessage('/ablecon/pos', [float(99), int(1), float(140), int(0), float(0), float(4)]), port, '127.0.0.1');
+    stray.send(encodeMessage('/ablecon/changed', [str('cues')]), port, '127.0.0.1');
+    await sleep(50);
+    // (The fake Live itself also pushes positions here: the controller reads tempos on connect.)
+    assert.ok(!seen.some((p) => p.beats === 99 || p.tempo === 140), 'position from a stranger ignored');
+    assert.deepEqual(changed, [], 'change notice from a stranger ignored');
+    fake.set.beats = 8.5;
+    fake.pushPosition();
+    await until(() => seen.some((p) => p.beats === 8.5));
+    assert.ok(true, "Live's own pushes still arrive");
+  } finally {
+    stray.close();
     done();
   }
 });
