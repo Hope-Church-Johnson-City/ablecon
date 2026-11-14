@@ -372,8 +372,10 @@ Companion 5.1+ installs, with nothing else needed on that computer.
 
 **From the package (any computer, e.g. the church's):**
 
-1. Build it on a Mac with this project: `npm run companion:package`. This writes
-   `companion-module/hopechurch-ablecon-<version>.tgz` (about 10 KB).
+1. Get the package. It's kept in this repo, always built from the current module:
+   `companion-module/hopechurch-ablecon-<version>.tgz` (about 10 KB). Download it from the
+   [companion-module folder on GitHub](https://github.com/Hope-Church-Johnson-City/ablecon/tree/main/companion-module)
+   (open the `.tgz`, then **Download raw file**), or use the one in your copy of the project.
 2. In Companion's page: **Modules → Import module package** and choose that `.tgz` file.
 3. **Connections → Add Connection → Ablecon**. Keep address `127.0.0.1` and port `8420` if Ablecon runs
    on the same computer; otherwise use the address from Ablecon's **File → Open on Other Devices**.
@@ -381,7 +383,12 @@ Companion 5.1+ installs, with nothing else needed on that computer.
    configuration**; on this one, **Import configuration** into an empty page. In **Settings → Buttons**,
    set **Default decoration** to **Border (when pressed)** to keep the page/button number off the keys.
 
-To update it later, build the new version and import that package the same way.
+To update it later, import the newer package the same way.
+
+The package is rebuilt on every commit: the pre-commit hook runs `npm run companion:package` and
+stages the result, which replaces the package for the previous version. The build keeps the file
+unchanged when the module is unchanged, and the checks fail if the package in git doesn't match the
+module. To build it by hand: `npm run companion:package`.
 
 **While developing (loads straight from this folder):**
 

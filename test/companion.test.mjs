@@ -273,8 +273,20 @@ test('the module is MIT licensed and packages for Companion; the packaged module
   assert.match(await readFile(path.join(moduleDir, 'LICENSE'), 'utf8'), /^MIT License/);
 
   // Build exactly as `npm run companion:package` does, then unpack the result like Companion would.
-  execFileSync('npm', ['run', 'package'], { cwd: moduleDir, stdio: 'ignore' });
+  execFileSync('node', [path.join(root, 'scripts/companion-package.mjs')], { cwd: root, stdio: 'ignore' });
   const tgz = path.join(moduleDir, `${manifest.id}-${manifest.version}.tgz`);
+
+  // The package is kept in the repo, for this version only, and matches the module (from Brant).
+  // The build leaves the file untouched when its contents are the same, so any change here means the
+  // package in git is out of date: commit it (the pre-commit hook rebuilds and stages it).
+  assert.deepEqual((await readdir(moduleDir)).filter((f) => f.endsWith('.tgz')), [path.basename(tgz)], 'only the current version is kept');
+  const tracked = execFileSync('git', ['ls-files', '--', path.relative(root, tgz)], { cwd: root, encoding: 'utf8' }).trim();
+  assert.equal(tracked, path.relative(root, tgz), `${path.basename(tgz)} is in the repo (git add it)`);
+  assert.equal(
+    execFileSync('git', ['diff', '--name-only', '--', path.relative(root, tgz)], { cwd: root, encoding: 'utf8' }).trim(),
+    '',
+    `${path.basename(tgz)} in git doesn't match the module: git add it`,
+  );
   const out = await mkdtemp(path.join(os.tmpdir(), 'ablecon-pkg-'));
   execFileSync('tar', ['-xzf', tgz, '-C', out]);
   const dir = path.join(out, manifest.id);
