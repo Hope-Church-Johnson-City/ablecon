@@ -57,3 +57,14 @@ test('the release notes say how to install the Companion module', async () => {
   assert.ok(stdout.includes(`${manifest.id}-${manifest.version}.tgz`), 'names the module package');
   assert.ok(stdout.includes('Import module package'));
 });
+
+// A downloaded app whose signature is incomplete is "damaged" to macOS and can't be opened at all
+// (seen on the church's tracks Mac with 1.3.0). Both apps must be signed ad hoc, completely.
+test('the Mac apps are signed ad hoc, and a release checks both signatures', async () => {
+  const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(pkg.build.mac.identity, '-', 'ad-hoc signing ("-"), not skipped (null)');
+  assert.equal(pkg.build.mac.hardenedRuntime, false, 'hardened runtime needs Apple signing; with ad hoc it stops the app starting');
+  const src = await readFile(script, 'utf8');
+  for (const app of ['release/mac-arm64/Ablecon.app', 'release/mac/Ablecon.app']) assert.ok(src.includes(app), `release checks ${app}`);
+  assert.match(src, /codesign --verify --deep --strict "\$app" \|\| fail/);
+});

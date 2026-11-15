@@ -91,6 +91,11 @@ echo "Building the installers..."
 rm -rf release
 npm run dist --silent
 [ -f "$ARM" ] && [ -f "$X64" ] || fail "the build didn't make $ARM and $X64"
+# A downloaded app with an incomplete signature is "damaged" to macOS and can't be opened at all,
+# so both apps must carry a complete (ad-hoc) signature before anything is published.
+for app in release/mac-arm64/Ablecon.app release/mac/Ablecon.app; do
+  codesign --verify --deep --strict "$app" || fail "$app isn't signed properly (macOS would call it damaged)"
+done
 echo "Building the Companion module package..."
 npm run companion:package --silent
 [ -f "$MODULE_TGZ" ] || fail "the Companion module package $MODULE_TGZ wasn't built"
