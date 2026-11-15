@@ -25,24 +25,30 @@ async function until(check: () => boolean, ms = 2000): Promise<void> {
   }
 }
 
-async function setup(opts: { timeoutMs?: number } = {}) {
+/**
+ * A fake Live and a client. `clientOnly` leaves out the Controller: on connecting it reads tempos
+ * by moving the fake's playhead (and back), and those genuine position pushes can land while a
+ * client test is waiting for its own, which made the client tests fail about 1 run in 25.
+ */
+async function setup(opts: { timeoutMs?: number; clientOnly?: boolean } = {}) {
   const fake = new FakeLive(demoSet());
   const port = await fake.start();
   const client = new LiveClient({ port, timeoutMs: opts.timeoutMs ?? 500, heartbeatMs: 60_000 });
   const dir = await mkdtemp(path.join(os.tmpdir(), 'ablecon-'));
   const setlistPath = path.join(dir, 'setlist.json');
-  const controller = new Controller(client, setlistPath);
-  controller.scanSettleMs = 5;
-  await controller.init();
   const done = () => {
     client.stop();
     fake.close();
   };
+  if (opts.clientOnly) return { fake, client, controller: undefined as unknown as Controller, setlistPath, done };
+  const controller = new Controller(client, setlistPath);
+  controller.scanSettleMs = 5;
+  await controller.init();
   return { fake, client, controller, setlistPath, done };
 }
 
 test('client calls methods and gets results and errors', async () => {
-  const { fake, client, done } = await setup();
+  const { fake, client, done } = await setup({ clientOnly: true });
   try {
     await client.start();
     await until(() => client.connected);
@@ -56,7 +62,7 @@ test('client calls methods and gets results and errors', async () => {
 });
 
 test('client reassembles chunked replies, even out of order', async () => {
-  const { fake, client, done } = await setup();
+  const { fake, client, done } = await setup({ clientOnly: true });
   try {
     fake.chunkSize = 50;
     fake.set.cues = Array.from({ length: 100 }, (_, i) => ({ name: `Section ${i} ✓`, time: i }));
@@ -69,7 +75,7 @@ test('client reassembles chunked replies, even out of order', async () => {
 });
 
 test('client times out when Live does not answer and reports disconnection', async () => {
-  const { fake, client, done } = await setup({ timeoutMs: 100 });
+  const { fake, client, done } = await setup({ timeoutMs: 100, clientOnly: true });
   try {
     fake.silent = true;
     const events: boolean[] = [];
@@ -86,8 +92,8 @@ test('client times out when Live does not answer and reports disconnection', asy
 
 test('client ignores messages that do not come from Live', async () => {
   // A stray sender (another program, or a late packet for a port the client's socket now reuses)
-  // must not move the playhead Ablecon shows. This once made the push test below fail at random.
-  const { fake, client, done } = await setup();
+  // must not move the playhead Ablecon shows.
+  const { fake, client, done } = await setup({ clientOnly: true });
   const stray = dgram.createSocket('udp4');
   try {
     await client.start();
@@ -101,7 +107,6 @@ test('client ignores messages that do not come from Live', async () => {
     stray.send(encodeMessage('/ablecon/pos', [float(99), int(1), float(140), int(0), float(0), float(4)]), port, '127.0.0.1');
     stray.send(encodeMessage('/ablecon/changed', [str('cues')]), port, '127.0.0.1');
     await sleep(50);
-    // (The fake Live itself also pushes positions here: the controller reads tempos on connect.)
     assert.ok(!seen.some((p) => p.beats === 99 || p.tempo === 140), 'position from a stranger ignored');
     assert.deepEqual(changed, [], 'change notice from a stranger ignored');
     fake.set.beats = 8.5;
@@ -115,7 +120,7 @@ test('client ignores messages that do not come from Live', async () => {
 });
 
 test('client emits pushed positions and change notices', async () => {
-  const { fake, client, done } = await setup();
+  const { fake, client, done } = await setup({ clientOnly: true });
   try {
     await client.start();
     await until(() => client.connected);
