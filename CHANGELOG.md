@@ -4,6 +4,13 @@ Ablecon uses [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH. A PAT
 bugs, a MINOR version adds something that works with your existing setlist, Remote Script and Stream
 Deck setup, and a MAJOR version changes something you'll need to redo or reinstall.
 
+## 1.3.1
+
+- Fix: on a Mac where Ablecon was downloaded from GitHub, macOS said **"Ablecon" is damaged and
+  can't be opened**. Ablecon wasn't damaged: its built-in signature was incomplete, which macOS
+  treats that way. The app is now signed properly, so the first time you open it macOS only asks once:
+  go to **System Settings → Privacy & Security** and click **Open Anyway**.
+
 ## 1.3.0
 
 - Ablecon sets up its Stream Deck module in Bitfocus Companion (5.1 or newer) on the same Mac by

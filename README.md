@@ -418,6 +418,12 @@ module. To build it by hand: `npm run companion:package`.
 
 ## Troubleshooting
 
+- **"Ablecon is damaged and can't be opened"** after downloading it: versions before 1.3.1 had an
+  incomplete signature, which macOS reports this way for downloaded apps. Install 1.3.1 or newer, or
+  clear the download mark once in Terminal: `xattr -cr /Applications/Ablecon.app`. From 1.3.1 on,
+  macOS instead says it can't verify the app the first time; go to **System Settings → Privacy &
+  Security** and click **Open Anyway**. (Ablecon is signed by itself, not by Apple, because that needs
+  a paid Apple developer account.)
 - **Dot stays red ("Live not found")**: check that Ablecon is chosen as a Control Surface in Live, and
   that you restarted Live after installing the script. Live writes the script's messages to its log
   (`~/Library/Preferences/Ableton/Live <version>/Log.txt`); search it for `Ablecon:`. A message like
