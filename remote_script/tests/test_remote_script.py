@@ -248,7 +248,8 @@ class DispatcherTests(unittest.TestCase):
         tracks = request(self.d, "mixer")["result"]["tracks"]
         self.assertEqual(len(tracks), 6)
         self.assertEqual(tracks[3], {"index": 3, "name": "Keys", "parents": ["Stems"], "isGroup": False,
-                                     "muted": False, "soloed": False, "mutedViaSolo": False})
+                                     "muted": False, "soloed": False, "mutedViaSolo": False,
+                                     "output": {"type": "Stems", "channel": ""}})
         before = handlers.mixer_signature(self.song)
         res = request(self.d, "mute", {"track": 3, "trackName": "Keys", "muted": True})
         self.assertEqual(res["result"], {"muted": True})
@@ -259,6 +260,55 @@ class DispatcherTests(unittest.TestCase):
         self.assertIn("renamed", request(self.d, "mute", {"track": 3, "trackName": "Pad", "muted": True})["error"])
         self.assertIn("muted", request(self.d, "mute", {"track": 3})["error"])
         self.assertFalse(request(self.d, "mute", {"track": 99, "muted": True})["ok"])
+
+    def test_mixer_reports_outputs(self):
+        res = request(self.d, "mixer")["result"]
+        self.assertEqual(res["tracks"][0]["output"], {"type": "Main", "channel": ""})  # Click (Live 12: "Main")
+        self.assertEqual(res["master"], {"output": {"type": "Ext. Out", "channel": "1/2"}})
+
+    def test_outputs_lists_the_interface_outputs_and_each_tracks_choices(self):
+        res = request(self.d, "outputs")["result"]
+        self.assertEqual(res["external"], "Ext. Out")
+        self.assertEqual(res["channels"], ["1/2", "3/4", "5/6", "7/8", "1", "2", "3", "4", "5", "6", "7", "8"])
+        keys = res["tracks"][3]["types"]  # Keys, in the Stems group
+        self.assertEqual(keys[:3], ["Ext. Out", "Main", "Stems"])
+        self.assertEqual(keys[-1], "Sends Only")
+        self.assertIn("Pad", keys, "Live also offers other tracks")
+        self.assertNotIn("Keys", keys)
+        self.assertIn("Ext. Out", res["tracks"][5]["types"], "a MIDI track with an instrument has audio out")
+        # Reading the choices changes nothing.
+        self.assertEqual(self.song.tracks[3].output_routing_type.display_name, "Stems")
+
+    def test_set_output_routes_a_track_to_an_interface_output_and_back(self):
+        before = handlers.mixer_signature(self.song)
+        res = request(self.d, "set_output", {"track": 3, "trackName": "Keys", "type": "Ext. Out", "channel": "5"})
+        self.assertEqual(res["result"], {"output": {"type": "Ext. Out", "channel": "5"}})
+        self.assertEqual(self.song.tracks[3].output_routing_channel.display_name, "5")
+        self.assertNotEqual(handlers.mixer_signature(self.song), before, "Ablecon hears about the change")
+        res = request(self.d, "set_output", {"track": 3, "trackName": "Keys", "type": "Ext. Out", "channel": "3/4"})
+        self.assertEqual(res["result"]["output"], {"type": "Ext. Out", "channel": "3/4"})
+        res = request(self.d, "set_output", {"track": 3, "trackName": "Keys", "type": "Stems"})
+        self.assertEqual(res["result"]["output"], {"type": "Stems", "channel": ""})
+
+    def test_outputs_of_a_midi_track_without_instrument_are_midi_ports(self):
+        d = Dispatcher(plain_song(), "12.4.16")
+        sections = request(d, "outputs")["result"]["tracks"][0]  # the Sections MIDI track
+        self.assertEqual(sections["types"], ["IAC Driver (Bus 1)", "No Output"])
+        self.assertEqual(request(d, "mixer")["result"]["tracks"][0]["output"], {"type": "No Output", "channel": ""})
+
+    def test_set_output_on_the_master(self):
+        res = request(self.d, "set_output", {"track": -1, "type": "Ext. Out", "channel": "3/4"})
+        self.assertEqual(res["result"]["output"], {"type": "Ext. Out", "channel": "3/4"})
+        self.assertEqual(self.song.master_track.output_routing_channel.display_name, "3/4")
+
+    def test_set_output_refuses_unknown_outputs_and_moved_tracks(self):
+        self.assertIn("isn't available", request(self.d, "set_output", {"track": 3, "type": "Dante 9"})["error"])
+        self.assertIn("isn't available", request(self.d, "set_output",
+                                                  {"track": 3, "type": "Ext. Out", "channel": "9"})["error"])
+        self.assertIn("renamed", request(self.d, "set_output",
+                                         {"track": 3, "trackName": "Pad", "type": "Main"})["error"])
+        self.assertIn("type", request(self.d, "set_output", {"track": 3})["error"])
+        self.assertEqual(self.song.tracks[3].output_routing_type.display_name, "Stems", "nothing changed")
 
     def test_signature_follows_sections_clips(self):
         song = plain_song()

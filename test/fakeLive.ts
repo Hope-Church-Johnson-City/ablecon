@@ -23,6 +23,24 @@ export class FakeLive {
   muted = new Set<number>(); // track indexes muted in the fake mixer
   scriptVersion = EXPECTED_SCRIPT_VERSION;
   soloed = new Set<number>();
+  // Output routing ("Audio To"), like Live: an 8-output interface (Dante 8x8) as Ext. Out, whose
+  // channels are listed as stereo pairs then single outputs. Tracks start on Master (or their
+  // group); the master track always goes to Ext. Out. Index -1 is the master.
+  static readonly EXT = 'Ext. Out';
+  static readonly CHANNELS = ['1/2', '3/4', '5/6', '7/8', '1', '2', '3', '4', '5', '6', '7', '8'];
+  // As Live 12 reports it: the master is "Main", a group's output is named after the group, other
+  // tracks are offered too (to record one into another), and only Ext. Out has channel names.
+  outputs = new Map<number, { type: string; channel: string }>([[-1, { type: FakeLive.EXT, channel: '1/2' }]]);
+  outputOf(index: number): { type: string; channel: string } {
+    const t = this.set.tracks[index];
+    return this.outputs.get(index) ?? { type: index >= 0 && t?.parents.length ? t.parents[0] : 'Main', channel: '' };
+  }
+  private outputTypes(index: number): string[] {
+    if (index === -1) return [FakeLive.EXT];
+    const t = this.set.tracks[index];
+    const others = this.set.tracks.filter((x) => x.index !== index && !x.isGroup).map((x) => x.name);
+    return [FakeLive.EXT, 'Main', ...(t?.parents.length ? [t.parents[0]] : []), ...others, 'Sends Only'];
+  }
   // Like Live: "play" starts at the start marker and "continue" where playback last
   // stopped. Moving the playhead while stopped changes neither, unless the script
   // can move the start marker (Song.start_time), which Ablecon's script does on jump.
@@ -179,7 +197,30 @@ export class FakeLive {
           muted: this.muted.has(t.index),
           ...(this.oldScript ? {} : { soloed: this.soloed.has(t.index) }),
           mutedViaSolo: this.soloed.size > 0 && !this.soloed.has(t.index),
-        })) };
+          ...(this.oldScript ? {} : { output: this.outputOf(t.index) }),
+        })), ...(this.oldScript ? {} : { master: { output: this.outputOf(-1) } }) };
+      case 'outputs':
+        if (this.oldScript) throw new Error("unknown method 'outputs'");
+        return { external: FakeLive.EXT, channels: FakeLive.CHANNELS, tracks: s.tracks.map((t) => ({ index: t.index, types: this.outputTypes(t.index) })) };
+      case 'set_output': {
+        if (this.oldScript) throw new Error("unknown method 'set_output'");
+        const index = Number(args.track);
+        if (index !== -1) {
+          const t = s.tracks[index];
+          if (!t || (args.trackName !== undefined && t.name !== args.trackName)) throw new Error('track was renamed or moved');
+        }
+        const type = String(args.type ?? '');
+        if (!this.outputTypes(index).includes(type)) throw new Error(`output '${type}' isn't available in Live`);
+        const channels = type === FakeLive.EXT ? FakeLive.CHANNELS : [''];
+        const before = this.outputOf(index);
+        let channel = before.type === type ? before.channel : channels[0];
+        if (typeof args.channel === 'string' && args.channel) {
+          if (!channels.includes(args.channel)) throw new Error(`output channel '${args.channel}' isn't available in Live`);
+          channel = args.channel;
+        }
+        this.outputs.set(index, { type, channel });
+        return { output: { type, channel } };
+      }
       case 'solo': {
         if (this.oldScript) throw new Error("unknown method 'solo'");
         const t = s.tracks[Number(args.track)];

@@ -6,12 +6,13 @@ import { parseLocators, type SectionClip } from './locators.ts';
 import { barBeats, crossedEnd, endOfSongAction, flowsInto, nextSectionJumpPoint, planKey, planTempo, sectionIndexAt, songAt, splitKeyPlan } from './planning.ts';
 import * as setlist from './setlist.ts';
 import * as store from './store.ts';
+import { planPreset, presetFromTracks, presetKey } from './outputs.ts';
 
 /**
  * The Remote Script version this app expects (keep equal to SCRIPT_VERSION in
  * remote_script/Ablecon/handlers.py; a test checks this).
  */
-export const EXPECTED_SCRIPT_VERSION = '1.5.0';
+export const EXPECTED_SCRIPT_VERSION = '1.6.0';
 
 /** True when Live is running an older Ablecon Remote Script than this app needs. */
 export function isOlderScript(running: string | null): boolean {
@@ -23,7 +24,7 @@ export function isOlderScript(running: string | null): boolean {
   }
   return false;
 }
-import type { Cue, KeyOp, MixerTrack, Position, SetlistFile, SetlistSettings, Song, TrackInfo } from './types.ts';
+import type { Cue, KeyOp, MixerTrack, OutputChoices, OutputPreset, Position, SetlistFile, SetlistSettings, Song, TrackInfo, TrackOutput } from './types.ts';
 
 /** The parts of LiveClient the controller uses (so tests can pass a stub). */
 export interface LiveLink extends EventEmitter {
@@ -79,6 +80,9 @@ export class Controller extends EventEmitter<ControllerEvents> {
   private tempoOverridden = false; // Ablecon set a tempo, so Live's tempo automation is overridden
   private restoreWarned = false;
   tracks: MixerTrack[] = [];
+  masterOutput: TrackOutput | null = null; // where the master goes (null with an older Remote Script)
+  outputChoices: OutputChoices | null = null; // null until read, or with an older Remote Script
+  private choicesFor = ''; // the track list the choices were read for
   private mixerRead = 0; // newest track-list read; older replies are dropped
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -146,6 +150,9 @@ export class Controller extends EventEmitter<ControllerEvents> {
       totalSeconds,
       warnings: this.parseWarnings,
       tracks: this.tracks,
+      masterOutput: this.masterOutput,
+      outputChoices: this.outputChoices,
+      outputPresets: this.outputPresets.map((p) => ({ name: p.name, tracks: Object.keys(p.outputs).length })),
       settings: this.file.settings,
       cuedId: this.cuedId,
       position: this.position,
@@ -214,10 +221,105 @@ export class Controller extends EventEmitter<ControllerEvents> {
    */
   async refreshTracks(): Promise<void> {
     const read = ++this.mixerRead;
-    const { tracks } = await this.live.call<{ tracks: MixerTrack[] }>('mixer');
+    const { tracks, master } = await this.live.call<{ tracks: MixerTrack[]; master?: { output: TrackOutput } | null }>('mixer');
     if (read !== this.mixerRead) return;
     this.tracks = tracks;
+    this.masterOutput = master?.output ?? null;
+    // What each track's output can be set to only changes when tracks are added, removed or moved.
+    const shape = tracks.map((t) => `${t.index}:${t.name}:${t.parents.join('/')}`).join('|');
+    if (shape !== this.choicesFor) {
+      try {
+        const reply = await this.live.call<{ external: string | null; channels: string[]; tracks: Array<{ index: number; types: string[] }> }>('outputs');
+        this.outputChoices = { external: reply.external, channels: reply.channels, types: Object.fromEntries(reply.tracks.map((t) => [t.index, t.types])) };
+      } catch {
+        this.outputChoices = null; // a Remote Script from before outputs (1.6.0)
+      }
+      this.choicesFor = shape;
+    }
     this.emit('state');
+  }
+
+  // ---- track outputs and output presets ---------------------------------------------
+
+  get outputPresets(): OutputPreset[] {
+    return this.store.outputPresets ?? [];
+  }
+
+  private async outputCall(args: Record<string, unknown>): Promise<void> {
+    try {
+      await this.live.call('set_output', args);
+    } catch (err) {
+      if (/unknown method/.test((err as Error).message)) {
+        throw new Error('Changing outputs needs the newer Remote Script: choose File → Install Remote Script in Ableton Live…, then restart Live.');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Route one track (index -1: the master) to an output. Like mutes, this skips the command
+   * queue and takes effect at once, also while playing.
+   */
+  async setOutput(index: number, name: string, type: string, channel: string | null): Promise<void> {
+    if (index !== -1) {
+      const track = this.tracks.find((t) => t.index === index);
+      if (!track || track.name !== name) {
+        void this.refreshTracks().catch(() => {});
+        throw new Error(`Track "${name}" has moved or been renamed in Live; try again.`);
+      }
+    }
+    await this.outputCall({ track: index, ...(index === -1 ? {} : { trackName: name }), type, ...(channel ? { channel } : {}) });
+    await this.refreshTracks();
+  }
+
+  private async savePresets(presets: OutputPreset[]): Promise<void> {
+    this.store = { ...this.store, outputPresets: presets };
+    await store.saveStore(this.setlistPath, this.store);
+    this.emit('state');
+  }
+
+  /** Save the current outputs under a name (replacing a preset of the same name). */
+  async saveOutputPreset(name: string): Promise<OutputPreset> {
+    const clean = name.trim();
+    if (!clean) throw new Error('Give the preset a name.');
+    if (clean.length > 40) throw new Error('Keep the preset name under 40 characters.');
+    if (!this.tracks.some((t) => t.output)) throw new Error('Outputs need the newer Remote Script: choose File → Install Remote Script in Ableton Live…, then restart Live.');
+    const preset = presetFromTracks(clean, this.tracks, this.masterOutput, this.outputChoices?.external ?? null);
+    const others = this.outputPresets.filter((p) => presetKey(p.name) !== presetKey(clean));
+    await this.savePresets([...others, preset]);
+    return preset;
+  }
+
+  async deleteOutputPreset(name: string): Promise<void> {
+    await this.savePresets(this.outputPresets.filter((p) => presetKey(p.name) !== presetKey(name)));
+  }
+
+  /**
+   * Set every track the preset names (and the master) to its saved output. Tracks it doesn't name
+   * stay as they are. Returns how many changed and which couldn't be set.
+   */
+  async applyOutputPreset(name: string): Promise<{ changed: number; failed: string[] }> {
+    const preset = this.outputPresets.find((p) => presetKey(p.name) === presetKey(name));
+    if (!preset) throw new Error(`There's no output preset called "${name}".`);
+    await this.refreshTracks();
+    const changes = planPreset(preset, this.tracks, this.masterOutput, this.outputChoices?.external ?? null, (i) => this.outputChoices?.types[i]);
+    let changed = 0;
+    const failed: string[] = [];
+    for (const c of changes) {
+      try {
+        await this.outputCall({ track: c.track, ...(c.track === -1 ? {} : { trackName: c.name }), type: c.type, ...(c.channel ? { channel: c.channel } : {}) });
+        changed++;
+      } catch (err) {
+        if (/newer Remote Script/.test((err as Error).message)) throw err;
+        failed.push(c.name);
+      }
+    }
+    await this.refreshTracks();
+    this.notice(failed.length ? 'warn' : 'info',
+      failed.length
+        ? `"${preset.name}": ${changed} output${changed === 1 ? '' : 's'} changed; couldn't set ${failed.join(', ')}.`
+        : changed ? `"${preset.name}": ${changed} output${changed === 1 ? '' : 's'} changed.` : `"${preset.name}": outputs were already set.`);
+    return { changed, failed };
   }
 
   /** Mute or unmute one track. `name` guards against the track list having changed. */

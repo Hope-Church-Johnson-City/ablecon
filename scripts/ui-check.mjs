@@ -243,6 +243,63 @@ async function main() {
     await until(() => !state.tracks.some((t) => t.soloed) && $('#clearSolosBtn').classList.contains('hidden'));
     return shown || 'Clear solos was not shown';`);
 
+  // ---- track outputs (Dante 8x8) ---------------------------------------------------------------
+  // Picks an output in a picker the way a person does: focus, choose, change.
+  const pickOut = `
+    const pickOut = async (sel, label) => {
+      const o = [...sel.options].find((x) => x.textContent === label);
+      if (!o) throw new Error('no option ' + label + ' in ' + sel.getAttribute('aria-label'));
+      sel.focus(); sel.value = o.value; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const outOf = (name, group) => chip(name, group).querySelector('select.out');`;
+
+  await check('Outputs swaps M and S for each track\'s output; Mute / Solo brings them back', `
+    tap($('[data-tmode=out]'));
+    await until(() => !$('#outputsBar').classList.contains('hidden'));
+    const sel = chip('Bass', 'Rivr Wide').querySelector('select.out');
+    const ms = chip('Bass', 'Rivr Wide').querySelector('.ms');
+    const labels = sel ? [...sel.options].map((o) => o.textContent) : [];
+    // As Live 12 names them: the track's group ("Rivr Wide") and "Main"; never the other tracks.
+    // (shown as "Group", since a song title doesn't fit).
+    const ok = sel && !ms && sel.selectedOptions[0].textContent === 'Group'
+      && sel.selectedOptions[0].value.startsWith('Rivr Wide')
+      && ['Out 1/2', 'Out 3/4', 'Out 1', 'Out 8', 'Group', 'Main', 'Sends Only'].every((l) => labels.includes(l))
+      && !labels.includes('Drums') && !labels.includes('Morning Light') && labels.length === 15
+      && $('#masterOut').selectedOptions[0]?.textContent === 'Out 1/2';
+    tap($('[data-tmode=mix]'));
+    await until(() => !!chip('Bass', 'Rivr Wide').querySelector('.ms .m') && $('#outputsBar').classList.contains('hidden'));
+    return ok || 'picker ' + !!sel + ', M/S hidden ' + !ms + ', options ' + labels.join(',') + ', master ' + $('#masterOut').selectedOptions[0]?.textContent;`);
+
+  await check('picking an output routes the track in Live and marks it as moved', `
+    ${pickOut}
+    tap($('[data-tmode=out]'));
+    await until(() => !!outOf('Bass', 'Rivr Wide'));
+    await pickOut(outOf('Bass', 'Rivr Wide'), 'Out 5');
+    const bass = () => state.tracks.find((t) => t.name === 'Bass' && t.parents[0] === 'Rivr Wide');
+    await until(() => bass().output.channel === '5' && outOf('Bass', 'Rivr Wide').classList.contains('moved'));
+    await pickOut($('#masterOut'), 'Out 3/4');
+    await until(() => state.masterOutput.channel === '3/4' && $('#masterOut').selectedOptions[0]?.textContent === 'Out 3/4');
+    return outOf('Bass', 'Rivr Wide').selectedOptions[0].textContent === 'Out 5' || 'picker shows ' + outOf('Bass', 'Rivr Wide').selectedOptions[0].textContent;`);
+
+  await check('a saved preset sets every track with that name (every song\'s Bass) and the master', `
+    ${pickOut}
+    // Only one song's Bass was moved (above): saving still means "Bass → 5".
+    $('#presetName').value = 'No bass player';
+    tap($('#presetSave'));
+    await until(() => (state.outputPresets || []).some((p) => p.name === 'No bass player'));
+    await pickOut($('#masterOut'), 'Out 1/2');
+    await until(() => state.masterOutput.channel === '1/2');
+    $('#presetSel').value = 'No bass player';
+    tap($('#presetApply'));
+    const basses = () => state.tracks.filter((t) => t.name === 'Bass');
+    await until(() => basses().length === 3 && basses().every((t) => t.output.channel === '5') && state.masterOutput.channel === '3/4');
+    const drums = state.tracks.filter((t) => t.name === 'Drums').every((t) => t.output.type === t.parents[0]);
+    // Back to normal for the checks after this one.
+    for (const t of basses()) send('setOutput', { track: t.index, name: t.name, type: t.parents[0], channel: null });
+    send('setOutput', { track: -1, name: 'Master', type: 'Ext. Out', channel: '1/2' });
+    await until(() => basses().every((t) => t.output.type === t.parents[0]) && state.masterOutput.channel === '1/2');
+    return drums || 'a track the preset left alone was moved';`);
+
   // ---- looks and warnings ---------------------------------------------------------
   await check('the Ableton look is the default on a new device', `
     const bg = getComputedStyle(document.body).backgroundColor;
@@ -329,6 +386,7 @@ async function main() {
     return before !== after || 'the played part looks the same as the unplayed part';`);
 
   // ---- phone width -----------------------------------------------------------------
+  // (The Tracks panel is left in Outputs here, so the phone check covers the pickers too.)
   win.setContentSize(375, 812);
   await sleep(300);
   await check('fits a phone screen (no sideways scrolling)', `

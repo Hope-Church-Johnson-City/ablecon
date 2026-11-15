@@ -4,6 +4,19 @@ Ablecon uses [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH. A PAT
 bugs, a MINOR version adds something that works with your existing setlist, Remote Script and Stream
 Deck setup, and a MAJOR version changes something you'll need to redo or reinstall.
 
+## 1.4.0
+
+- **Track outputs.** In the Tracks panel, switch **Mute / Solo** to **Outputs**: each track gets a
+  picker for where its sound goes (Out 1–8 and pairs on your audio interface, Main, its group, or Sends
+  Only), and the **Master** gets one at the top. Changes are heard straight away. A track moved away from
+  its normal place shows in orange.
+- **Output presets.** Set things up (for example Click → Out 1, Guide → Out 2, Master → Out 3/4, Bass →
+  Out 5), type a name and press **Save current**; later pick it and press **Apply**. Presets go by track
+  name, so "Bass → Out 5" moves the Bass in every song, and they work in every Live set.
+- Needs the new Remote Script (1.6.0): choose **File → Install Remote Script in Ableton Live…**, then
+  restart Live. Ablecon reminds you if Live still has the old one; everything else keeps working until
+  then.
+
 ## 1.3.1
 
 - Fix: on a Mac where Ablecon was downloaded from GitHub, macOS said **"Ablecon" is damaged and

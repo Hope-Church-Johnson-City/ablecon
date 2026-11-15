@@ -100,4 +100,25 @@ export interface MixerTrack {
   muted: boolean;
   soloed?: boolean; // missing with a Remote Script older than 1.2.0
   mutedViaSolo: boolean; // silent because another track is soloed
+  output?: TrackOutput; // missing with a Remote Script older than 1.6.0
+}
+
+/** Where a track's audio goes, by the names Live shows in "Audio To": a type ("Ext. Out", "Master",
+ * "Group", …) and, for Ext. Out, the audio interface output ("1/2", "5", …). */
+export interface TrackOutput {
+  type: string | null;
+  channel: string | null;
+}
+
+/** What outputs can be chosen: the interface's outputs, and each track's types by track index. */
+export interface OutputChoices {
+  external: string | null; // the type that means the audio interface (Live: "Ext. Out")
+  channels: string[]; // its outputs
+  types: Record<number, string[]>;
+}
+
+/** A saved set of outputs, by track name (lower case), plus the master's ("#master"). */
+export interface OutputPreset {
+  name: string;
+  outputs: Record<string, { type: string; channel: string | null }>;
 }

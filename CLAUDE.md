@@ -129,6 +129,11 @@ bumped by the same rules when they change. `test/version.test.ts` checks all of 
 - Waveform in the now panel: all stems mixed (not click/guide/Sections/muted), lined up by warp
   markers, section bands and names, bar lines, played part bright; built in the background with
   `afconvert`, cached in `ablecon-waveforms/` next to the setlist; plain line until ready.
+- Track outputs (`src/outputs.ts`, Remote Script `outputs`/`set_output`, Tracks panel **Outputs**):
+  each track's and the master's Audio To, only useful choices offered (interface outputs, Main, own
+  group, Sends Only), names as Live 12 shows them ("Main", groups by group name, shown as "Group");
+  output presets by track name in the setlist file (`outputPresets`), "normal place" = own group/Main,
+  a moved track wins when saving. Checked on Jeremy's real Live 12 set.
 - Section loops, six looks (per device; **Ableton** is the default), outdated Remote Script warning,
   phone layout.
 - One-click updates (`src/update.ts`, `app/main.js`): newer GitHub release found at launch and every 6 h,
