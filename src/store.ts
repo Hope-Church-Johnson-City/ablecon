@@ -9,7 +9,7 @@
 
 import { promises as fs } from 'node:fs';
 import { DEFAULT_SETTINGS, parseSetlistFile, setSettings, validateSemitones, validateTempo } from './setlist.ts';
-import type { SetlistEntry, SetlistFile, SetlistSettings, Song } from './types.ts';
+import type { OutputPreset, SetlistEntry, SetlistFile, SetlistSettings, Song } from './types.ts';
 
 export interface SongSettings {
   name: string;
@@ -29,6 +29,7 @@ export interface StoreFile {
   songs: Record<string, SongSettings>;
   sets: StoredSet[];
   settings: SetlistSettings;
+  outputPresets?: OutputPreset[]; // shared by every Live set
 }
 
 const MAX_SETS = 60;
@@ -166,6 +167,8 @@ export function parseStore(text: string): StoreFile {
     if (raw.legacy) set.legacy = true;
     store.sets.push(set);
   }
+  const presets = parseOutputPresets(data.outputPresets);
+  if (presets.length) store.outputPresets = presets;
   for (const [k, v] of Object.entries(data.settings ?? {})) {
     try {
       store.settings = setSettings({ version: 1, entries: [], settings: store.settings }, { [k]: v }).settings;
@@ -182,6 +185,23 @@ function safe<T>(fn: () => T): T | null {
   } catch {
     return null;
   }
+}
+
+/** Output presets from the file; anything malformed is left out. */
+export function parseOutputPresets(raw: unknown): OutputPreset[] {
+  if (!Array.isArray(raw)) return [];
+  const out: OutputPreset[] = [];
+  for (const p of raw) {
+    if (!p || typeof p !== 'object' || typeof (p as OutputPreset).name !== 'string') continue;
+    const name = (p as OutputPreset).name.trim();
+    const outputs: OutputPreset['outputs'] = {};
+    for (const [track, o] of Object.entries((p as OutputPreset).outputs ?? {})) {
+      if (!o || typeof o !== 'object' || typeof o.type !== 'string' || !o.type) continue;
+      outputs[track] = { type: o.type, channel: typeof o.channel === 'string' && o.channel ? o.channel : null };
+    }
+    if (name && !out.some((x) => x.name.toLowerCase() === name.toLowerCase())) out.push({ name, outputs });
+  }
+  return out;
 }
 
 export async function loadStore(path: string): Promise<StoreFile> {

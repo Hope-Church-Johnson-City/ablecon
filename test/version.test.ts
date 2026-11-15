@@ -19,7 +19,8 @@ test('older Remote Scripts are recognised', () => {
   assert.equal(isOlderScript('1.3.9'), true);
   assert.equal(isOlderScript('0.9'), true);
   assert.equal(isOlderScript(EXPECTED_SCRIPT_VERSION), false);
-  assert.equal(isOlderScript('1.5.0'), false);
+  assert.equal(isOlderScript('1.5.0'), true, '1.5.0 has no track outputs (added in 1.6.0)');
+  assert.equal(isOlderScript('1.6.0'), false);
   assert.equal(isOlderScript('2.0.0'), false);
   assert.equal(isOlderScript(null), false, 'unknown: no warning');
 });

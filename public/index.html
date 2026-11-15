@@ -79,8 +79,25 @@
           <button id="tracksBtn" class="ghost small" aria-expanded="true">Hide</button>
         </div>
         <div class="tracks-bar">
-          <p class="hint" id="tracksHint"><b>M</b> mutes, <b>S</b> solos. Tap a group’s name to open or close it.</p>
+          <div class="seg tracks-mode" role="radiogroup" aria-label="What the track buttons do">
+            <button type="button" data-tmode="mix" class="on" role="radio" aria-checked="true">Mute / Solo</button>
+            <button type="button" data-tmode="out" role="radio" aria-checked="false">Outputs</button>
+          </div>
           <button id="clearSolosBtn" class="ghost small hidden">Clear solos</button>
+        </div>
+        <p class="hint" id="tracksHint"><b>M</b> mutes, <b>S</b> solos. Tap a group’s name to open or close it.</p>
+        <div id="outputsBar" class="outputs-bar hidden">
+          <div class="out-row"><span class="olabel">Master</span><select id="masterOut" aria-label="Master output"></select></div>
+          <div class="out-row">
+            <span class="olabel">Preset</span>
+            <select id="presetSel" aria-label="Output preset"></select>
+            <button type="button" id="presetApply" class="small">Apply</button>
+            <button type="button" id="presetDelete" class="ghost small">Delete</button>
+          </div>
+          <div class="out-row">
+            <input id="presetName" type="text" maxlength="40" autocomplete="off" placeholder="Name, e.g. No bass player" aria-label="Name for a new preset">
+            <button type="button" id="presetSave" class="small">Save current</button>
+          </div>
         </div>
         <div id="tracks" class="tracks"></div>
       </section>

@@ -231,6 +231,23 @@ A song with no section locators still gets its sections from the Sections track,
   - Changes take effect immediately, even mid-song, and changes you make in Live show up on every device
     within a fraction of a second. Solo needs Remote Script 1.2.0 or newer (**File → Install Remote Script
     in Ableton Live…**, then restart Live). **Hide** folds the whole panel away on that device.
+- **Outputs** (the switch at the top of the Tracks panel, next to **Mute / Solo**) shows where each
+  track's sound goes, Live's **Audio To**, and lets you change it:
+  - Each track's picker offers the outputs of your audio interface (Out 1–8 one by one and in pairs, for
+    a Dante 8x8, or whatever Live lists for your interface), **Main**, its own **Group** and **Sends
+    Only**. Live also lists every other track as a destination; those aren't offered. Tracks with no
+    audio output (a MIDI track with no instrument, like the Sections track) show "–".
+  - **Master** at the top sets where the master goes, e.g. **Out 3/4**.
+  - A track that's been moved away from its normal place (its group, or Main outside groups) shows in
+    orange. Changes are heard straight away, like mutes, also while playing.
+  - **Presets:** type a name and press **Save current** to keep the current outputs; pick one and press
+    **Apply** to set them again. Presets go by track name, so a Bass moved to Out 5 means every track
+    called Bass, in every song's group. Where tracks of the same name differ, one moved away from its
+    normal place wins. Tracks a preset doesn't name are left alone, and "normal place" in a preset means
+    each track's own group (or Main). Presets are kept in the setlist file and work in every Live set.
+  - Needs Remote Script 1.6.0 or newer. Ableton doesn't let scripts change the audio output device
+    itself (Live's Settings → Audio); to switch between e.g. Dante and headphones, set Live to an
+    Aggregate Device made of both in Audio MIDI Setup and use outputs and presets to choose.
 - **Set** in the top bar is the total running time of every song in the setlist. A song with its own
   tempo in the setlist is timed at that tempo. Otherwise Ablecon uses the tempo at the song's locator
   in the tempo automation (see above). Tempo changes in the middle of a song aren't
@@ -577,7 +594,8 @@ Methods: `ping`, `state`, `cues`, `play`, `continue`, `stop`, `jump {beats}`, `t
 `loop {start, length, enabled}`, `tracks {start, end}`, `apply {ops}`, `mixer`,
 `mute {track, trackName, muted}`, `solo {track, trackName, soloed}`, `clear_solos`, `play_from {beats}`,
 `restore_tempo`, `jump_at {at, to}`, `cancel_jump`, `audio_clips {start, end}` (each audio clip's file,
-start marker, warp markers and mute, for the waveform). Replies are split into chunks of
+start marker, warp markers and mute, for the waveform), `outputs` (the interface's outputs and what each
+track's output can be set to), `set_output {track, trackName, type, channel}` (track -1 is the master). Replies are split into chunks of
 6000 ASCII characters to stay under macOS's 9216-byte UDP datagram limit.
 
 ### Tests
@@ -593,6 +611,10 @@ start marker, warp markers and mute, for the waveform). Replies are split into c
   settings following a song between sets, converting the old shared setlist (tested with a real one).
 - **Tempo and key planning**: `[nokey]` tags (including on groups), warped/unwarped clips, clips crossing
   song edges, Pitch devices and their range, what may change while playing, end-of-song detection.
+- **Track outputs and presets**: reading outputs as Live 12 names them ("Main", groups by name),
+  offering only useful outputs, routing a track and the master, never leaving a track half-changed,
+  presets by track name across groups (a moved track wins; same-named tracks inside and outside groups
+  keep their normal place), saving, applying and deleting them, older Remote Scripts.
 - **Track mutes**: listing tracks, muting and unmuting, refusing a track that was renamed or moved,
   picking up mutes made in Live, and mutes not waiting behind a slow transport or key command.
 - **Song ends**: stopping only at STOP markers, playing straight through other boundaries with the next
@@ -613,7 +635,9 @@ start marker, warp markers and mute, for the waveform). Replies are split into c
 
 Most of Ablecon was tested against fakes that model the parts of Live's API it uses. Checked in a real
 Live set so far: the Remote Script loads and connects, locators and the Sections track are read
-correctly, the track list and mutes, and starting playback exactly at a song or section. The waveform
+correctly, the track list and mutes, and starting playback exactly at a song or section. Track outputs
+were checked on a real Live 12 set (a Bass and the master moved and back, a preset moving every song's
+Bass and a second one putting them back), on a Mac with a 2-output interface rather than Dante. The waveform
 was built for all four songs of a real set (44 stems, .m4a and .wav) and looked right by eye, but not yet
 watched against the playhead during real playback. Waveforms are rebuilt when locators change, when Live
 reconnects or with **Settings → Re-read locators**; moving or editing stems alone doesn't trigger it.

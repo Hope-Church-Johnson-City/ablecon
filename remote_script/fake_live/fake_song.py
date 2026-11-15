@@ -94,7 +94,70 @@ class Clip(object):
         self._pitch = int(value)
 
 
-class Track(object):
+class Routing(object):
+    """A RoutingType or RoutingChannel: Live identifies them by the name it shows."""
+    def __init__(self, display_name):
+        self.display_name = display_name
+
+    def __repr__(self):
+        return "Routing(%r)" % self.display_name
+
+
+EXT_OUT = "Ext. Out"
+# An 8-output interface (like Dante 8x8): Live lists the stereo pairs, then each output.
+EXT_CHANNELS = ["1/2", "3/4", "5/6", "7/8"] + [str(n) for n in range(1, 9)]
+
+
+class Routable(object):
+    """Live's output routing ("Audio To"), as Live 12 reports it: the channels on offer depend on the
+    type chosen, and only objects from the available lists can be assigned. Only Ext. Out has
+    channels; Main, a group or another track show an empty channel name."""
+
+    def _types(self):
+        return [EXT_OUT, "Sends Only"]
+
+    def _channels_for(self, kind):
+        if kind == EXT_OUT:
+            return list(EXT_CHANNELS)
+        return [""]
+
+    def _init_routing(self, kind, channel):
+        self._out_type = kind
+        self._out_channel = channel
+
+    @property
+    def available_output_routing_types(self):
+        return tuple(Routing(n) for n in self._types())
+
+    @property
+    def output_routing_type(self):
+        return Routing(self._out_type)
+
+    @output_routing_type.setter
+    def output_routing_type(self, value):
+        if not isinstance(value, Routing) or value.display_name not in self._types():
+            raise RuntimeError("Invalid routing type")
+        if value.display_name != self._out_type:
+            self._out_type = value.display_name
+            chans = self._channels_for(self._out_type)
+            self._out_channel = chans[0] if chans else ""  # Live picks the first channel
+
+    @property
+    def available_output_routing_channels(self):
+        return tuple(Routing(n) for n in self._channels_for(self._out_type))
+
+    @property
+    def output_routing_channel(self):
+        return Routing(self._out_channel)
+
+    @output_routing_channel.setter
+    def output_routing_channel(self, value):
+        if not isinstance(value, Routing) or value.display_name not in self._channels_for(self._out_type):
+            raise RuntimeError("Invalid routing channel")
+        self._out_channel = value.display_name
+
+
+class Track(Routable):
     def __init__(self, name, midi=False, clips=None, devices=None, group=None, foldable=False):
         self.name = name
         self.has_midi_input = midi
@@ -106,6 +169,20 @@ class Track(object):
         self.song = None  # set by Song, so muted_via_solo can look at the other tracks
         self._clips = clips or []
         self.devices = devices or []
+        # Live 12: a track in a group goes to the group (named after it), others to "Main". A MIDI
+        # track with no instrument sends MIDI, so its choices are MIDI ports.
+        if midi and not devices:
+            self._init_routing("No Output", "")
+        else:
+            self._init_routing(group.name if group is not None else "Main", "")
+
+    def _types(self):
+        if self.has_midi_input and not self.devices:
+            return ["IAC Driver (Bus 1)", "No Output"]
+        # Live also offers every other track (to record one into another).
+        others = [t.name for t in (self.song.tracks if self.song else []) if t is not self and not t.is_foldable]
+        types = [EXT_OUT, "Main"] + ([self.group_track.name] if self.group_track is not None else [])
+        return types + others + ["Sends Only"]
 
     def _ancestors(self):
         group = self.group_track
@@ -131,10 +208,22 @@ class Track(object):
         return self._clips
 
 
+class MasterTrack(Routable):
+    """The master always goes to the audio interface (Ext. Out); only its channel changes."""
+    name = "Master"
+
+    def __init__(self):
+        self._init_routing(EXT_OUT, "1/2")
+
+    def _types(self):
+        return [EXT_OUT]
+
+
 class Song(object):
     def __init__(self, cue_points=None, tracks=None, tempo=120.0, song_length=0.0, tempo_map=None):
         self.cue_points = cue_points or []
         self.tracks = tracks or []
+        self.master_track = MasterTrack()
         for track in self.tracks:
             track.song = self
         # tempo_map: [(beat, bpm), ...] imitates a Song Tempo automation lane.

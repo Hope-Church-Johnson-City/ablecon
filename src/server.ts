@@ -80,6 +80,10 @@ async function dispatch(c: Controller, cmd: Command): Promise<void> {
     case 'mute': return c.setMute(n(cmd.track), String(cmd.name ?? ''), Boolean(cmd.muted));
     case 'solo': return c.setSolo(n(cmd.track), String(cmd.name ?? ''), Boolean(cmd.soloed));
     case 'clearSolos': return c.clearSolos();
+    case 'setOutput': return c.setOutput(n(cmd.track), String(cmd.name ?? ''), String(cmd.type ?? ''), typeof cmd.channel === 'string' && cmd.channel ? cmd.channel : null);
+    case 'saveOutputPreset': await c.saveOutputPreset(String(cmd.name ?? '')); return;
+    case 'applyOutputPreset': await c.applyOutputPreset(String(cmd.name ?? '')); return;
+    case 'deleteOutputPreset': return c.deleteOutputPreset(String(cmd.name ?? ''));
     // Simple commands for button boxes (Stream Deck via Companion).
     case 'nextSong': return c.nextSong();
     case 'previousSong': return c.previousSong();

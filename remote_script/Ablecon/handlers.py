@@ -5,7 +5,7 @@ something JSON-serialisable. Nothing here imports Live modules, so the same
 code runs under the unit tests with a fake Song.
 """
 
-SCRIPT_VERSION = "1.5.0"
+SCRIPT_VERSION = "1.6.0"
 
 # Class name Live reports for its built-in "Pitch" MIDI effect.
 PITCH_DEVICE_CLASS = "MidiPitcher"
@@ -308,8 +308,20 @@ def tracks(song, args):
     return {"tracks": result}
 
 
+def _display_name(routing):
+    return _safe(lambda: routing.display_name)
+
+
+def _output_of(track):
+    """Where a track's audio goes: Live's "Audio To" type (e.g. "Ext. Out", "Master", a group) and
+    channel (e.g. "1/2", "5"), by the names Live shows."""
+    return {"type": _display_name(_safe(lambda: track.output_routing_type)),
+            "channel": _display_name(_safe(lambda: track.output_routing_channel))}
+
+
 def mixer(song, args):
-    """Every track with its mute state, in Live's order (grouped tracks included)."""
+    """Every track with its mute state and output, in Live's order (grouped tracks included),
+    and the master track's output."""
     result = []
     for index, track in enumerate(song.tracks):
         result.append({
@@ -320,15 +332,76 @@ def mixer(song, args):
             "muted": bool(track.mute),
             "soloed": bool(_safe(lambda: track.solo, False)),
             "mutedViaSolo": bool(_safe(lambda: track.muted_via_solo, False)),
+            "output": _output_of(track),
         })
-    return {"tracks": result}
+    master = _safe(lambda: song.master_track)
+    return {"tracks": result, "master": {"output": _output_of(master)} if master is not None else None}
 
 
 def mixer_signature(song):
-    """Cheap fingerprint of track names and mute states, to notice changes in Live."""
-    return tuple((t.name, bool(t.mute), bool(_safe(lambda: t.solo, False)),
-                  bool(_safe(lambda: t.muted_via_solo, False)))
-                 for t in song.tracks)
+    """Cheap fingerprint of track names, mute states and outputs, to notice changes in Live."""
+    master = _safe(lambda: song.master_track)
+    return (tuple((t.name, bool(t.mute), bool(_safe(lambda: t.solo, False)),
+                   bool(_safe(lambda: t.muted_via_solo, False)),
+                   _display_name(_safe(lambda: t.output_routing_type)),
+                   _display_name(_safe(lambda: t.output_routing_channel)))
+                  for t in song.tracks),
+            _display_name(_safe(lambda: master.output_routing_channel)) if master is not None else None)
+
+
+def outputs(song, args):
+    """What each track's output can be set to. Live lists a type's channels only while that type is
+    chosen, so the outputs of the audio interface (Ext. Out) come from the master track, which
+    always goes there."""
+    master = _safe(lambda: song.master_track)
+    channels = [n for n in (_display_name(c) for c in
+                            _safe(lambda: list(master.available_output_routing_channels), []) or [])
+                if n]
+    result = []
+    for index, track in enumerate(song.tracks):
+        types = [n for n in (_display_name(t) for t in
+                             _safe(lambda: list(track.available_output_routing_types), []) or [])
+                 if n]
+        result.append({"index": index, "types": types})
+    return {"external": _display_name(_safe(lambda: master.output_routing_type)),
+            "channels": channels, "tracks": result}
+
+
+def _pick(options, name, what):
+    for option in options:
+        if _display_name(option) == name:
+            return option
+    raise RequestError("%s '%s' isn't available in Live" % (what, name))
+
+
+def set_output(song, args):
+    """Route a track (or the master, track -1) to an output: a type and, optionally, its channel."""
+    if int(args.get("track", 0)) == -1:
+        track = song.master_track
+    else:
+        track = _track_checked(song, args)
+    kind = args.get("type")
+    if not isinstance(kind, str) or not kind:
+        raise RequestError("missing argument 'type'")
+    old_type = _display_name(track.output_routing_type)
+    old_channel = _display_name(track.output_routing_channel)
+    new_type = _pick(list(track.available_output_routing_types), kind, "output")
+    try:
+        if old_type != kind:
+            track.output_routing_type = new_type
+        channel = args.get("channel")
+        if isinstance(channel, str) and channel and _display_name(track.output_routing_channel) != channel:
+            track.output_routing_channel = _pick(list(track.available_output_routing_channels), channel,
+                                                 "output channel")
+    except Exception:
+        # Never leave a track half-changed (new type, wrong channel): put it back as it was.
+        if _display_name(track.output_routing_type) != old_type:
+            track.output_routing_type = _pick(list(track.available_output_routing_types), old_type, "output")
+        if old_channel and _display_name(track.output_routing_channel) != old_channel:
+            track.output_routing_channel = _pick(list(track.available_output_routing_channels), old_channel,
+                                                 "output channel")
+        raise
+    return {"output": _output_of(track)}
 
 
 def mute(song, args):
@@ -488,4 +561,6 @@ HANDLERS = {
     "mute": mute,
     "solo": solo,
     "clear_solos": clear_solos,
+    "outputs": outputs,
+    "set_output": set_output,
 }

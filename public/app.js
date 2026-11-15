@@ -22,6 +22,8 @@ let tapMode = 'jump';
 let renderDeferred = false;
 let tracksOpen = true;
 try { tracksOpen = localStorage.getItem('ablecon.tracksOpen') !== 'no'; } catch { /* storage blocked */ }
+let tracksMode = 'mix'; // 'mix': M and S buttons; 'out': output pickers
+try { tracksMode = localStorage.getItem('ablecon.tracksMode') === 'out' ? 'out' : 'mix'; } catch { /* storage blocked */ }
 
 // ---- formatting --------------------------------------------------------------
 
@@ -303,7 +305,106 @@ function msButtons(t) {
   );
 }
 
-/** One track: its name with M and S buttons. */
+// ---- track outputs ("Audio To" in Live) -------------------------------------------------------
+
+const OUT_SEP = '\u0000';
+
+/** "Out 5", "Out 3/4", or Live's own name ("Master", "Group", …). */
+function outputLabel(o) {
+  const ext = state.outputChoices && state.outputChoices.external;
+  if (!o || !o.type) return '–';
+  if (o.type === ext) return o.channel ? `Out ${o.channel}` : o.type;
+  return o.type;
+}
+
+/** Where a track normally goes: its group, or the master outside groups. */
+function isNormalOutput(t) {
+  const type = t.output && t.output.type;
+  if (!type) return true;
+  return t.parents.length ? type === 'Group' || type === t.parents[0] : type === 'Main' || type === 'Master';
+}
+
+/** The outputs worth offering (see usefulTypes in src/outputs.ts): never every other track. */
+function usefulTypes(t, types) {
+  const ext = state.outputChoices.external;
+  const offered = types || [];
+  if (!ext || !offered.includes(ext)) return [];
+  return offered.filter((x) => x === ext || x === 'Main' || x === 'Master' || x === 'Sends Only'
+    || (t.parents.length > 0 && (x === 'Group' || x === t.parents[0])));
+}
+
+/** A picker for one track's output (index -1: the master). */
+function outputPicker(t, index, name, types) {
+  const choices = state.outputChoices;
+  const ext = choices.external;
+  const current = t.output || { type: null, channel: null };
+  const sel = el('select', {
+    class: `out${index !== -1 && !isNormalOutput(t) ? ' moved' : ''}`,
+    'aria-label': `Output of ${name}`,
+    title: `${name} → ${outputLabel(current)}`,
+    onclick: (e) => e.stopPropagation(),
+    onchange: (e) => {
+      const [type, channel] = e.target.value.split(OUT_SEP);
+      send('setOutput', { track: index, name, type, channel: channel || null });
+      e.target.blur(); // let the panel show Live's answer
+    },
+  });
+  const options = [];
+  for (const type of types || []) {
+    if (type === ext) for (const ch of choices.channels) options.push({ value: type + OUT_SEP + ch, label: `Out ${ch}` });
+    // Live 12 names a group's output after the group (a song title): show it as "Group".
+    else options.push({ value: type + OUT_SEP, label: t.parents.length && type === t.parents[0] ? 'Group' : type });
+  }
+  const now = current.type === ext ? current.type + OUT_SEP + (current.channel || '') : (current.type || '') + OUT_SEP;
+  if (current.type && !options.some((o) => o.value === now)) options.unshift({ value: now, label: outputLabel(current) });
+  for (const o of options) sel.append(el('option', { value: o.value }, o.label));
+  sel.value = now;
+  return sel;
+}
+
+/** The track's controls: M and S, or its output picker. */
+function trackControls(t) {
+  if (tracksMode === 'out' && state.outputChoices && t.output) {
+    const types = usefulTypes(t, state.outputChoices.types[t.index]);
+    if (!types.length) return el('span', { class: 'no-out', title: `${t.name} has no audio output to choose` }, '–');
+    return outputPicker(t, t.index, t.name, types);
+  }
+  return msButtons(t);
+}
+
+/** The master's output, the presets, and the hint, for the Outputs view. */
+function renderOutputsBar() {
+  const out = tracksMode === 'out';
+  document.querySelectorAll('.tracks-mode button').forEach((b) => {
+    const on = b.dataset.tmode === tracksMode;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', String(on));
+  });
+  const choices = state.outputChoices;
+  const hint = $('#tracksHint');
+  if (!out) hint.innerHTML = '<b>M</b> mutes, <b>S</b> solos. Tap a group’s name to open or close it.';
+  else if (!choices) hint.textContent = 'Changing outputs needs the newer Remote Script: on the Mac running Live, choose File → Install Remote Script in Ableton Live…, then restart Live.';
+  else hint.textContent = 'Pick where each track goes. Changes are heard straight away. A preset sets every track with the same name at once (every Bass, in every song).';
+  $('#outputsBar').classList.toggle('hidden', !out || !choices || !tracksOpen);
+  $('#clearSolosBtn').classList.toggle('hidden', out || !(state.tracks || []).some((t) => t.soloed));
+  if (!out || !choices) return;
+  const masterRow = $('#masterOut');
+  const picker = state.masterOutput ? outputPicker({ output: state.masterOutput, parents: [] }, -1, 'Master', [choices.external]) : null;
+  const masterValue = picker ? picker.value : '';
+  masterRow.replaceChildren(...(picker ? [...picker.children] : []));
+  masterRow.value = masterValue;
+  masterRow.disabled = !picker;
+  const presets = state.outputPresets || [];
+  const sel = $('#presetSel');
+  const keep = sel.value;
+  sel.replaceChildren(...(presets.length ? presets.map((p) => el('option', { value: p.name }, p.name)) : [el('option', { value: '' }, 'No presets yet')]));
+  if (presets.some((p) => p.name === keep)) sel.value = keep;
+  sel.disabled = !presets.length;
+  $('#presetApply').disabled = !presets.length;
+  $('#presetDelete').disabled = !presets.length;
+}
+
+/** One track: its name with M and S buttons (or, in Outputs, its output). */
 function trackChip(t) {
   const cls = ['chip'];
   if (t.muted) cls.push('muted');
@@ -312,7 +413,7 @@ function trackChip(t) {
   return el('div', {
     class: cls.join(' '),
     title: !t.muted && !t.soloed && t.mutedViaSolo ? `${t.name} is silent because another track is soloed` : t.name,
-  }, el('span', { class: 'cname' }, t.name), msButtons(t));
+  }, el('span', { class: 'cname' }, t.name), trackControls(t));
 }
 
 function countSoloed(node) {
@@ -324,7 +425,16 @@ function countMuted(node) {
 }
 
 let tracksRenderedFor = undefined;
+let tracksDeferred = false;
 function renderTracks() {
+  // Don't rebuild a dropdown (or the preset name) out from under someone using it.
+  const active = document.activeElement;
+  if (active && active.matches('select, input') && $('.mixer').contains(active)) {
+    tracksDeferred = true;
+    return;
+  }
+  tracksDeferred = false;
+  renderOutputsBar();
   const box = $('#tracks');
   const tracks = state.tracks || [];
   $('#tracksBtn').textContent = tracksOpen ? 'Hide' : 'Show';
@@ -333,8 +443,6 @@ function renderTracks() {
   $('.mixer').classList.toggle('collapsed', !tracksOpen);
   const current = currentGroupName();
   tracksRenderedFor = current;
-  const anySolo = tracks.some((t) => t.soloed);
-  $('#clearSolosBtn').classList.toggle('hidden', !anySolo);
   box.replaceChildren();
   if (tracks.length === 0) {
     box.append(el('p', { class: 'hint' }, state.connected ? 'This Live set has no tracks.' : 'Waiting for Live…'));
@@ -369,7 +477,7 @@ function renderTracks() {
           isCurrent ? el('span', { class: 'now' }, 'This song') : null,
           el('span', { class: 'gsum' }, summary.join(' · ')),
         ),
-        msButtons(t),
+        trackControls(t),
       ),
     );
     if (open) {
@@ -646,6 +754,39 @@ $('#nextBtn').onclick = () => {
 $('#loopOffBtn').onclick = () => send('loopOff');
 $('#nextSectionBtn').onclick = () => send(state && state.pendingJump ? 'cancelJump' : 'nextSection');
 $('#clearSolosBtn').onclick = () => send('clearSolos');
+document.querySelectorAll('.tracks-mode button').forEach((b) => {
+  b.onclick = () => {
+    tracksMode = b.dataset.tmode === 'out' ? 'out' : 'mix';
+    try { localStorage.setItem('ablecon.tracksMode', tracksMode); } catch { /* storage blocked */ }
+    if (!tracksOpen) {
+      tracksOpen = true;
+      try { localStorage.setItem('ablecon.tracksOpen', 'yes'); } catch { /* storage blocked */ }
+    }
+    renderTracks();
+  };
+});
+$('.mixer').addEventListener('focusout', () => setTimeout(() => { if (tracksDeferred) renderTracks(); }, 0));
+$('#masterOut').onchange = (e) => {
+  const [type, channel] = e.target.value.split(OUT_SEP);
+  send('setOutput', { track: -1, name: 'Master', type, channel: channel || null });
+  e.target.blur();
+};
+$('#presetApply').onclick = () => { const name = $('#presetSel').value; if (name) send('applyOutputPreset', { name }); };
+$('#presetDelete').onclick = () => {
+  const name = $('#presetSel').value;
+  if (name && confirm(`Delete the output preset "${name}"? Outputs in Live stay as they are.`)) send('deleteOutputPreset', { name });
+};
+const savePreset = () => {
+  const input = $('#presetName');
+  const name = input.value.trim();
+  if (!name) { toast('Type a name for the preset first.', 'warn'); input.focus(); return; }
+  send('saveOutputPreset', { name });
+  input.value = '';
+  input.blur();
+  setTimeout(() => { $('#presetSel').value = name; }, 300);
+};
+$('#presetSave').onclick = savePreset;
+$('#presetName').addEventListener('keydown', (e) => { if (e.key === 'Enter') savePreset(); });
 $('#tracksBtn').onclick = () => {
   tracksOpen = !tracksOpen;
   try { localStorage.setItem('ablecon.tracksOpen', tracksOpen ? 'yes' : 'no'); } catch { /* storage blocked */ }
