@@ -394,7 +394,18 @@ on the same Mac by itself, as soon as both are running (at launch, then checked 
 - it adds an `ablecon` connection to this Ablecon if there's none (also if one is deleted);
 - it moves `ablecon` connections on an older version of the module to the one it carries, so a new
   Ablecon brings its module along the first time it starts, and turns them back on if they were turned
-  off. Each connection's address and port are left as they are.
+  off. Each connection's address and port are left as they are;
+- with a new connection it also adds the **Stream Deck buttons**: a page called **Ablecon**, the
+  15-key layout from Jeremy's Mac (below). On a new Companion, whose only page is blank, it becomes
+  page 1; otherwise it's added as a new page at the end, so no page of yours is replaced. A Companion
+  that already had an Ablecon connection keeps its own buttons: there, **File → Set Up Stream Deck
+  (Companion)** offers to add the page when Companion has none called "Ablecon".
+
+```
+   Song 1   Song 2   Song 3      Song 4         Song 5
+   Song 6   Song 7   Song 8      Song 9         Song 10
+   Play     Stop     Next song   Next section   (empty)
+```
 
 It never changes anything while Live is playing (switching the module version restarts it in Companion
 for a moment); it waits until Live stops. A connection using a developer copy of the module (see below)
@@ -412,8 +423,10 @@ Companion's launcher window (127.0.0.1:8000 unless changed there).
 2. In Companion's page: **Modules → Import module package** and choose that `.tgz` file.
 3. **Connections → Add Connection → Ablecon**. Keep address `127.0.0.1` and port `8420` if Ablecon runs
    on the same computer; otherwise use the address from Ablecon's **File → Open on Other Devices**.
-4. To get a button page from another Companion: on that one, **Import / Export → Export
-   configuration**; on this one, **Import configuration** into an empty page. In **Settings → Buttons**,
+4. For the buttons: **Import / Export → Import configuration** and choose
+   `companion-module/ablecon-buttons.companionconfig` (the page above; download it from the same
+   folder on GitHub), import it into an empty page and pick the Ablecon connection for it. A page from
+   another Companion works the same way, after **Export configuration** there. In **Settings → Buttons**,
    set **Default decoration** to **Border (when pressed)** to keep the page/button number off the keys.
 
 To update it later, import the newer package the same way.

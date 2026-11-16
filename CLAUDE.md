@@ -126,6 +126,15 @@ bumped by the same rules when they change. `test/version.test.ts` checks all of 
   newer versions untouched. Tested against a stand-in Companion in `test/companion-setup.test.ts`
   (calls and shapes taken from Companion 5.1.3's source; not yet tried against a real Companion).
   `ABLECON_COMPANION_URL` points at another Companion, `ABLECON_NO_COMPANION` turns it off.
+- Stream Deck button page (from Brant, 2026-11-15: Ablecon sets up the button layout in Companion
+  too): `companion-module/ablecon-buttons.companionconfig` is Jeremy's 15-key page (from the
+  "Ablecon Stream Deck kit" sent around 2026-11-08), page renamed "Ablecon", kept as plain JSON and
+  shipped in the installer. Added through Companion's own import calls (`importExport.prepareImport.*`,
+  `importExport.importSinglePage`) only together with a new connection (blank page 1 on a fresh
+  Companion, else a new page at the end), or from File → Set Up Stream Deck after asking; never when
+  a page called "Ablecon" exists, never over a page with keys on it. Existing setups (Jeremy's Mac, the
+  church tracks computer) keep their own buttons. The test checks the page uses only actions and
+  feedbacks the module has. Same caveat: tested against the stand-in Companion only.
 - Waveform in the now panel: all stems mixed (not click/guide/Sections/muted), lined up by warp
   markers, section bands and names, bar lines, played part bright; built in the background with
   `afconvert`, cached in `ablecon-waveforms/` next to the setlist; plain line until ready.

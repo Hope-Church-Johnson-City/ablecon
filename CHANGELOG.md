@@ -4,6 +4,16 @@ Ablecon uses [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH. A PAT
 bugs, a MINOR version adds something that works with your existing setlist, Remote Script and Stream
 Deck setup, and a MAJOR version changes something you'll need to redo or reinstall.
 
+## 1.5.0
+
+- **Stream Deck buttons set themselves up.** When Ablecon sets up a new Companion connection, it also
+  adds the button page from Jeremy's Mac as a page called **Ablecon**: songs 1–10, Play, Stop, Next
+  song and Next section on a 15-key Stream Deck. On a new Companion it becomes page 1; otherwise it's a
+  new page at the end, and no page of yours is replaced. A Companion that already has Ablecon keeps its
+  own buttons; there, **File → Set Up Stream Deck (Companion)** offers to add the page.
+- The page is also in the project as `companion-module/ablecon-buttons.companionconfig`, for importing
+  by hand into a Companion on another computer.
+
 ## 1.4.0
 
 - **Track outputs.** In the Tracks panel, switch **Mute / Solo** to **Outputs**: each track gets a

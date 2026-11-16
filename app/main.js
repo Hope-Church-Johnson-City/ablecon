@@ -212,14 +212,21 @@ function logCompanion(msg) {
   console.log(`Companion: ${msg}`);
 }
 
+const companionFiles = () => (app.isPackaged ? path.join(process.resourcesPath, 'companion-module') : path.join(appRoot, 'companion-module'));
+
 /** The module package this Ablecon carries (companion-module/hopechurch-ablecon-<version>.tgz). */
 async function bundledModule() {
-  const dir = app.isPackaged ? path.join(process.resourcesPath, 'companion-module') : path.join(appRoot, 'companion-module');
-  const tgz = (await fs.readdir(dir).catch(() => [])).find((f) => companion.packageVersion(f));
-  return tgz ? path.join(dir, tgz) : null;
+  const tgz = (await fs.readdir(companionFiles()).catch(() => [])).find((f) => companion.packageVersion(f));
+  return tgz ? path.join(companionFiles(), tgz) : null;
 }
 
-async function keepCompanionSetUp({ interactive = false } = {}) {
+/** The Stream Deck button page this Ablecon carries (companion-module/ablecon-buttons.companionconfig). */
+function bundledButtons() {
+  const file = path.join(companionFiles(), 'ablecon-buttons.companionconfig');
+  return existsSync(file) ? file : null;
+}
+
+async function keepCompanionSetUp({ interactive = false, addButtons = false } = {}) {
   if (companionRunning || !server) return;
   companionRunning = true;
   let result = null;
@@ -232,6 +239,8 @@ async function keepCompanionSetUp({ interactive = false } = {}) {
       ablePort: server.port,
       url: process.env.ABLECON_COMPANION_URL || undefined,
       busy: () => server.controller.position.playing,
+      buttons: bundledButtons(),
+      addButtons,
     });
     // Log changes, and each change of state (not every quiet minute).
     for (const step of result.steps ?? []) if (result.state === 'ok') logCompanion(companion.describeStep(step));
@@ -249,7 +258,21 @@ async function keepCompanionSetUp({ interactive = false } = {}) {
   } finally {
     companionRunning = false;
   }
-  if (interactive) showCompanionResult(result, error);
+  if (!interactive) return;
+  // Asked from the menu on a Companion without the button page (its Ablecon connection was there
+  // before, so its own buttons were kept): offer to add the page.
+  if (!error && !addButtons && result?.state === 'ok' && !result.buttonPage && bundledButtons()) {
+    const { response } = await dialog.showMessageBox({
+      type: 'question',
+      message: `Companion is set up (Ablecon module ${result.version})`,
+      detail: 'Companion has no page called "Ablecon". Add the Ablecon Stream Deck buttons (15 keys: songs 1 to 10, Play, Stop, Next song, Next section) as a new page? Your other pages stay as they are.',
+      buttons: ['Add the Buttons', 'Not Now'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0) return keepCompanionSetUp({ interactive: true, addButtons: true });
+  }
+  showCompanionResult(result, error);
 }
 
 function showCompanionResult(result, error) {
