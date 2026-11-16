@@ -2,17 +2,36 @@
 // stand-in Companion that answers the same tRPC calls over a WebSocket as Companion 5.1 does.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
 import {
-  companionUrl, describeStep, ensureCompanion, MODULE_ID, packageVersion, planCompanion, type CompanionConnection,
+  buttonPageTarget, companionUrl, describeStep, ensureCompanion, MODULE_ID, packageVersion, planCompanion,
+  type CompanionConnection, type CompanionPage,
 } from '../src/companion.ts';
 
+// The module's own action and feedback lists (plain JS, in the module's folder).
+const { actionDefinitions, feedbackDefinitions } = (await import('../companion-module/src/definitions.js' as string)) as {
+  actionDefinitions: (run: () => void) => Record<string, unknown>;
+  feedbackDefinitions: (check: () => boolean) => Record<string, unknown>;
+};
+
 const root = path.resolve(import.meta.dirname, '..');
-const TGZ = '/x/hopechurch-ablecon-1.3.0.tgz';
+const BUTTONS = path.join(root, 'companion-module', 'ablecon-buttons.companionconfig');
+
+/** A page as Companion keeps it: name, keys (row → column → control id), and for the stand-in, the
+ * connection ids the keys' actions and feedbacks use. */
+interface FakePage {
+  name: string;
+  controls: Record<number, Record<number, string>>;
+  usesConnections?: string[];
+}
+
+/** Companion's fresh page 1: only its page-up, page-number and page-down keys. */
+const freshPage = (): FakePage => ({ name: 'PAGE', controls: { 0: { 0: 'nav1' }, 1: { 0: 'nav2' }, 2: { 0: 'nav3' } } });
 
 interface FakeConn extends CompanionConnection {
   moduleId: string;
@@ -20,13 +39,16 @@ interface FakeConn extends CompanionConnection {
 }
 
 /** A stand-in Companion: just the module and connection calls Ablecon makes. */
-async function fakeCompanion(start: { installed?: string[]; connections?: FakeConn[]; refuseInstall?: string } = {}) {
+async function fakeCompanion(start: { installed?: string[]; connections?: FakeConn[]; refuseInstall?: string; pages?: FakePage[] } = {}) {
   const state = {
     installed: [...(start.installed ?? [])],
     connections: new Map((start.connections ?? []).map((c) => [c.id, { ...c }])),
+    pages: start.pages ?? [freshPage()],
     imported: [] as Buffer[],
     calls: [] as string[],
   };
+  let upload: { id: string; data: Buffer } | null = null;
+  let pending: { page: { name: string; controls: Record<string, Record<string, unknown>> }; instances: Record<string, unknown> } | null = null;
   let nextId = 1;
   const wss = new WebSocketServer({ port: 0, host: '127.0.0.1', path: '/trpc' });
   await new Promise((r) => wss.once('listening', r));
@@ -74,6 +96,47 @@ async function fakeCompanion(start: { installed?: string[]; connections?: FakeCo
           if (!state.installed.includes(input.versionId)) return reply('Module version is not installed');
           state.connections.get(input.connectionId)!.moduleVersionId = input.versionId;
           return reply(null);
+        }
+        case 'pages.watch':
+          return reply({
+            type: 'init',
+            order: state.pages.map((_, i) => `p${i}`),
+            pages: Object.fromEntries(state.pages.map((pg, i) => [`p${i}`, { id: `p${i}`, name: pg.name, controls: pg.controls }])),
+          });
+        case 'importExport.prepareImport.start':
+          if (upload) return fail('Session already exists or size is invalid');
+          upload = { id: 'u1', data: Buffer.alloc(input.size) };
+          return reply('u1');
+        case 'importExport.prepareImport.uploadChunk': {
+          const u = upload;
+          if (u?.id !== input.sessionId) return fail('Invalid session or offset');
+          Buffer.from(input.data, 'base64').copy(u!.data, input.offset);
+          return reply(1);
+        }
+        case 'importExport.prepareImport.complete': {
+          const data = upload!.data;
+          upload = null;
+          if (createHash('sha1').update(data).digest('hex') !== input.expectedChecksum) return fail('Checksum mismatch');
+          const obj = JSON.parse(data.toString('utf8'));
+          if (obj.type !== 'page') return reply(['Not a page export', null]);
+          pending = obj;
+          return reply([null, { type: 'page' }]);
+        }
+        case 'importExport.importSinglePage': {
+          if (!pending) return fail('No in-progress import object');
+          const remap = input.connectionIdRemapping as Record<string, string>;
+          // Which connections the imported keys end up using (Companion rewrites each action's id).
+          const used = new Set<string>();
+          const ids = JSON.stringify(pending.page.controls).matchAll(/"connectionId":"([^"]+)"/g);
+          for (const [, id] of ids) used.add(remap[id] ?? `new:${id}`);
+          const controls: FakePage['controls'] = {};
+          for (const [row, cols] of Object.entries(pending.page.controls)) {
+            for (const col of Object.keys(cols)) (controls[Number(row)] ??= {})[Number(col)] = `imported-${row}-${col}`;
+          }
+          const page: FakePage = { name: pending.page.name, controls, usesConnections: [...used] };
+          if (input.targetPage === -1) state.pages.push(page);
+          else state.pages[input.targetPage - 1] = page;
+          return reply(remap);
         }
         case 'instances.connections.setEnabled':
           state.connections.get(input.connectionId)!.enabled = input.enabled;
@@ -220,5 +283,129 @@ test('the app carries the module package from the repo', async () => {
   assert.ok(
     pkg.build.extraResources.some((r: { from: string; filter?: string[] }) => r.from === 'companion-module' && r.filter?.includes('*.tgz')),
     'the installer includes companion-module/*.tgz',
+  );
+});
+
+// ---- the Stream Deck button page ---------------------------------------------------------
+
+const page = (number: number, name: string, controls: CompanionPage['controls'] = {}): CompanionPage => ({ number, name, controls });
+const navOnly = { 0: { 0: 'a' }, 1: { 0: 'b' }, 2: { 0: 'c' } };
+
+test('the plan: the button page comes with a new connection, or on request, never twice', () => {
+  const fresh = [page(1, 'PAGE', navOnly)];
+  assert.deepEqual(planCompanion(['1.3.0'], [], '1.3.0', fresh).at(-1), { do: 'buttons', page: 1 }, 'a fresh Companion: page 1');
+  assert.deepEqual(planCompanion(['1.3.0'], [conn({ moduleVersionId: '1.3.0' })], '1.3.0', fresh), [],
+    'an Ablecon connection was already there: its own buttons are kept');
+  assert.deepEqual(planCompanion(['1.3.0'], [conn({ moduleVersionId: '1.3.0' })], '1.3.0', fresh, true), [{ do: 'buttons', page: 1 }], 'asked for');
+  assert.deepEqual(planCompanion(['1.3.0'], [], '1.3.0', [page(1, 'PAGE', navOnly), page(2, ' ablecon ')]).map((s) => s.do), ['add'],
+    'a page called Ablecon is already there');
+  assert.equal(buttonPageTarget([page(1, 'PAGE', { ...navOnly, 0: { 0: 'a', 3: 'mine' } })]), null, 'a page with keys on it is never replaced');
+  assert.equal(buttonPageTarget([page(1, 'PAGE'), page(2, 'PAGE')]), null, 'more than one page: a new page at the end');
+  assert.equal(buttonPageTarget([page(1, 'Mine', { 0: { 0: null as unknown as string } })]), 1, 'empty spots are empty');
+  assert.match(describeStep({ do: 'buttons', page: null }), /added the Stream Deck buttons as page at the end/);
+  assert.match(describeStep({ do: 'buttons', page: 1 }), /as page 1 \("Ablecon"\)/);
+});
+
+test('a fresh Companion gets the module, a connection and the buttons on page 1, once', async () => {
+  const fake = await fakeCompanion();
+  try {
+    const tgz = await modulePackage();
+    const result = await ensureCompanion({ tgz, ablePort: 8420, url: fake.url, buttons: BUTTONS });
+    assert.equal(result.state, 'ok');
+    assert.deepEqual(result.state === 'ok' && result.steps.map((s) => s.do), ['install', 'add', 'buttons']);
+    assert.equal(result.state === 'ok' && result.buttonPage, true);
+    const [c] = [...fake.state.connections.values()];
+    assert.equal(fake.state.pages.length, 1, 'page 1 was used, not a new page');
+    assert.equal(fake.state.pages[0].name, 'Ablecon');
+    assert.deepEqual(fake.state.pages[0].usesConnections, [c.id], "every key uses this Mac's new Ablecon connection");
+    assert.equal(Object.values(fake.state.pages[0].controls).flatMap((r) => Object.keys(r)).length, 14);
+
+    fake.state.calls.length = 0;
+    const again = await ensureCompanion({ tgz, ablePort: 8420, url: fake.url, buttons: BUTTONS });
+    assert.deepEqual(again.state === 'ok' && again.steps, [], 'the next minute: nothing to do');
+    assert.ok(!fake.state.calls.some((p) => p.startsWith('importExport')), 'no second import');
+  } finally {
+    await fake.close();
+  }
+});
+
+test("a Companion that already had Ablecon keeps its own buttons unless asked; then they're a new page at the end", async () => {
+  const mine: FakePage = { name: 'Worship', controls: { 0: { 0: 'x', 1: 'y' } } };
+  const fake = await fakeCompanion({ installed: ['1.3.0'], connections: [conn({ moduleVersionId: '1.3.0' })], pages: [mine] });
+  try {
+    const tgz = await modulePackage();
+    const result = await ensureCompanion({ tgz, ablePort: 8420, url: fake.url, buttons: BUTTONS });
+    assert.deepEqual(result.state === 'ok' && [result.steps, result.buttonPage], [[], false], 'nothing added; no Ablecon page');
+    assert.equal(fake.state.pages.length, 1);
+
+    const asked = await ensureCompanion({ tgz, ablePort: 8420, url: fake.url, buttons: BUTTONS, addButtons: true });
+    assert.deepEqual(asked.state === 'ok' && asked.steps, [{ do: 'buttons', page: null }]);
+    assert.deepEqual(fake.state.pages[0], mine, 'their page is untouched');
+    assert.equal(fake.state.pages[1].name, 'Ablecon');
+    assert.deepEqual(fake.state.pages[1].usesConnections, ['c9'], 'the keys use the existing connection');
+
+    const twice = await ensureCompanion({ tgz, ablePort: 8420, url: fake.url, buttons: BUTTONS, addButtons: true });
+    assert.deepEqual(twice.state === 'ok' && twice.steps, [], 'asked again: the page is there already');
+    assert.equal(fake.state.pages.length, 2);
+  } finally {
+    await fake.close();
+  }
+});
+
+test('without a button page to give (or while Live plays), no page is added', async () => {
+  const fake = await fakeCompanion();
+  try {
+    const tgz = await modulePackage();
+    const waiting = await ensureCompanion({ tgz, ablePort: 8420, url: fake.url, buttons: BUTTONS, busy: () => true });
+    assert.equal(waiting.state, 'waiting');
+    assert.equal(fake.state.pages[0].name, 'PAGE');
+    const result = await ensureCompanion({ tgz, ablePort: 8420, url: fake.url });
+    assert.deepEqual(result.state === 'ok' && result.steps.map((s) => s.do), ['install', 'add']);
+    assert.equal(fake.state.pages[0].name, 'PAGE');
+  } finally {
+    await fake.close();
+  }
+});
+
+test("the button page in the repo: Jeremy's 15-key layout, using only what the module offers", async () => {
+  const exported = JSON.parse(await readFile(BUTTONS, 'utf8'));
+  assert.equal(exported.type, 'page');
+  assert.equal(exported.page.name, 'Ablecon');
+  const instances = Object.entries(exported.instances) as Array<[string, { moduleId: string }]>;
+  assert.deepEqual(instances.map(([, c]) => c.moduleId), [MODULE_ID], 'one connection: Ablecon');
+
+  const actions = Object.keys(actionDefinitions(() => {}));
+  const feedbacks = Object.keys(feedbackDefinitions(() => false));
+  const layout: string[] = [];
+  for (const row of ['0', '1', '2']) {
+    for (const col of ['0', '1', '2', '3', '4']) {
+      const key = exported.page.controls[row]?.[col];
+      if (!key) {
+        layout.push('-');
+        continue;
+      }
+      const down = Object.values(key.steps as Record<string, { action_sets: { down: Array<{ definitionId: string; connectionId: string; options: Record<string, { value: unknown }> }> } }>)
+        .flatMap((st) => st.action_sets.down);
+      for (const a of down) {
+        assert.ok(actions.includes(a.definitionId), `${row}/${col}: the module has the action ${a.definitionId}`);
+        assert.equal(a.connectionId, instances[0][0]);
+      }
+      for (const f of key.feedbacks as Array<{ definitionId: string; connectionId: string }>) {
+        assert.ok(feedbacks.includes(f.definitionId), `${row}/${col}: the module has the feedback ${f.definitionId}`);
+        assert.equal(f.connectionId, instances[0][0]);
+      }
+      const [a] = down;
+      layout.push(a.definitionId === 'cue_song' ? `song ${a.options.number.value}` : a.definitionId);
+    }
+  }
+  assert.deepEqual(layout, [
+    'song 1', 'song 2', 'song 3', 'song 4', 'song 5',
+    'song 6', 'song 7', 'song 8', 'song 9', 'song 10',
+    'toggle_play', 'stop', 'next_song', 'next_section', '-',
+  ]);
+  const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+  assert.ok(
+    pkg.build.extraResources.some((r: { from: string; filter?: string[] }) => r.from === 'companion-module' && r.filter?.includes('*.companionconfig')),
+    'the installer includes the button page',
   );
 });
