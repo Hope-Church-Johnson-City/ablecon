@@ -105,9 +105,17 @@ function showWindow() {
     minHeight: 500,
     title: 'Ablecon',
     backgroundColor: '#1e1e1e', // the default (Ableton) look's background
+    // No separate title bar: the traffic lights sit in the page's top bar (see ?app=mac below),
+    // centred in its 40 px.
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 13 },
     webPreferences: { backgroundThrottling: false, contextIsolation: true, sandbox: true },
   });
-  win.loadURL(`http://127.0.0.1:${server.port}/`);
+  win.loadURL(`http://127.0.0.1:${server.port}/?app=mac`);
+  // In full screen the traffic lights are hidden, so the top bar doesn't need room for them.
+  const fullscreen = (on) => win?.webContents.executeJavaScript(`document.documentElement.classList.toggle('fullscreen', ${on})`).catch(() => {});
+  win.on('enter-full-screen', () => fullscreen(true));
+  win.on('leave-full-screen', () => fullscreen(false));
   // Links that leave the app open in the default browser.
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);

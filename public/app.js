@@ -512,7 +512,8 @@ function renderNextSection(here, focus) {
   btn.disabled = !next;
   const bars = state.settings.jumpBars ?? 2;
   const when = position.playing ? ` · after ${bars} bar${bars === 1 ? '' : 's'}` : '';
-  btn.replaceChildren(el('span', {}, next ? `Next section → ${next.name}` : 'Next section'), next ? el('span', { class: 'sub' }, when.replace(' · ', '')) : null);
+  // (replaceChildren would write a null out as the word "null": leave it out instead.)
+  btn.replaceChildren(...[el('span', {}, next ? `Next section → ${next.name}` : 'Next section'), next ? el('span', { class: 'sub' }, when.replace(' · ', '')) : null].filter(Boolean));
 }
 
 let sectionsFor = null;

@@ -143,6 +143,9 @@ bumped by the same rules when they change. `test/version.test.ts` checks all of 
   group, Sends Only), names as Live 12 shows them ("Main", groups by group name, shown as "Group");
   output presets by track name in the setlist file (`outputPresets`), "normal place" = own group/Main,
   a moved track wins when saving. Checked on Jeremy's real Live 12 set.
+- Mac app window: no separate title bar (`titleBarStyle: 'hiddenInset'`); the page, loaded with
+  `?app=mac`, makes its top bar the title bar (40 px, room for the traffic lights, drags the window,
+  buttons still click, normal padding in full screen). Browsers and phones unchanged.
 - Section loops, six looks (per device; **Ableton** is the default), outdated Remote Script warning,
   phone layout.
 - One-click updates (`src/update.ts`, `app/main.js`): newer GitHub release found at launch and every 6 h,

@@ -401,6 +401,31 @@ async function main() {
     const c = $('#waveCanvas');
     return (box.left >= panel.left && box.right <= panel.right && c.width >= Math.floor(box.width) - 1 && $('#waveCanvas').dataset.wave === 'yes') || 'waveform box ' + box.left + '–' + box.right + ' in panel ' + panel.left + '–' + panel.right + ', canvas ' + c.width;`);
 
+  await check('Next section never shows "null" when there is no next section', `
+    renderNextSection(null, null);
+    const text = $('#nextSectionBtn').textContent;
+    renderPosition();
+    return (text === 'Next section') || 'button says ' + JSON.stringify(text);`);
+
+  // ---- the Mac app's window: no separate title bar ------------------------------------------
+  win.setContentSize(1280, 900);
+  await check('in a browser or phone the top bar is the normal one', `
+    const bar = getComputedStyle($('.topbar'));
+    return (!document.documentElement.dataset.app && bar.paddingLeft === '16px' && bar.webkitAppRegion !== 'drag') || 'padding ' + bar.paddingLeft + ', region ' + bar.webkitAppRegion;`);
+  await win.loadURL(`http://127.0.0.1:${server.port}/?app=mac`);
+  await check('in the Mac app the top bar is the title bar: room for the traffic lights, drags the window, buttons still click', `
+    await until(() => typeof state !== 'undefined' && state && state.connected);
+    const bar = getComputedStyle($('.topbar'));
+    const gear = getComputedStyle($('#settingsBtn'));
+    const brand = $('.brand').getBoundingClientRect();
+    const ok = document.documentElement.dataset.app === 'mac' && parseFloat(bar.paddingLeft) >= 80 && brand.left >= 80
+      && $('.topbar').getBoundingClientRect().height <= 41 && $('#settingsBtn').getBoundingClientRect().height <= 34
+      && bar.webkitAppRegion === 'drag' && gear.webkitAppRegion === 'no-drag';
+    document.documentElement.classList.add('fullscreen'); // traffic lights hidden in full screen
+    const full = getComputedStyle($('.topbar')).paddingLeft;
+    document.documentElement.classList.remove('fullscreen');
+    return (ok && full === '12px') || 'padding ' + bar.paddingLeft + ', brand at ' + brand.left + ', height ' + $('.topbar').getBoundingClientRect().height + ', region ' + bar.webkitAppRegion + '/' + gear.webkitAppRegion + ', full screen ' + full;`);
+
   record('no errors in the page', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '));
 }
 
