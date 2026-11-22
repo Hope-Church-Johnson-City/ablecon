@@ -53,6 +53,12 @@ button.small { padding: 6px 10px; font-size: 14px; }
 h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; }
 
 .topbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 5; }
+/* Mac app: the window's title bar is Ablecon's top bar. Leave room for the traffic lights, and let the
+   bar move the window like a title bar does (buttons and links still click). */
+html[data-app="mac"] .topbar { height: 40px; padding: 0 12px 0 84px; -webkit-app-region: drag; -webkit-user-select: none; user-select: none; }
+html[data-app="mac"] .topbar #settingsBtn { padding: 3px 9px; font-size: 14px; }
+html[data-app="mac"] .topbar button, html[data-app="mac"] .topbar a, html[data-app="mac"] .topbar select, html[data-app="mac"] .topbar input { -webkit-app-region: no-drag; }
+html[data-app="mac"].fullscreen .topbar { padding-left: 12px; }
 .brand { font-weight: 700; letter-spacing: 0.02em; }
 .spacer { flex: 1; }
 .link { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }

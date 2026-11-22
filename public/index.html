@@ -23,6 +23,11 @@
       look = new URLSearchParams(location.search).get('look') || localStorage.getItem('ablecon.look') || 'live';
     } catch (e) { /* storage blocked: default look */ }
     if (look !== 'stage') document.documentElement.dataset.look = look;
+    // In the Mac app the window has no separate title bar: the traffic lights sit in Ablecon's own
+    // top bar (app/main.js loads the page with ?app=mac).
+    try {
+      if (new URLSearchParams(location.search).get('app') === 'mac') document.documentElement.dataset.app = 'mac';
+    } catch (e) { /* old browser: normal top bar */ }
   </script>
 </head>
 <body>

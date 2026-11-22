@@ -4,6 +4,14 @@ Ablecon uses [semantic versioning](https://semver.org): MAJOR.MINOR.PATCH. A PAT
 bugs, a MINOR version adds something that works with your existing setlist, Remote Script and Stream
 Deck setup, and a MAJOR version changes something you'll need to redo or reinstall.
 
+## 1.5.1
+
+- The Mac app no longer has a separate grey title bar: the window's red, yellow and green buttons sit in
+  Ablecon's own top bar, which is also a little thinner. Drag the top bar to move the window, as before.
+  Phones and browsers are unchanged.
+- Fix: with no next section (for example while Live isn't connected), the Next section button showed
+  the word "null".
+
 ## 1.5.0
 
 - **Stream Deck buttons set themselves up.** When Ablecon sets up a new Companion connection, it also
